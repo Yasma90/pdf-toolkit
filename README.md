@@ -93,6 +93,109 @@ Extract specific pages from a PDF:
 - **Odd Pages**: Extract pages 1, 3, 5...
 - **Even Pages**: Extract pages 2, 4, 6...
 
+### Watermark
+
+Add text or image watermarks to your PDFs:
+
+**Position Options:**
+
+| Position          | Description                   |
+| ----------------- | ----------------------------- |
+| Top/Center/Bottom | Standard 9-position grid      |
+| Diagonal          | Centered with rotation        |
+| Tile              | Repeating pattern across page |
+
+**Customization:**
+
+- Custom text input
+- Adjustable opacity (10-100%)
+- Font size (12-120pt)
+- Rotation angle (-90° to 90°)
+- Color picker with 10 preset colors
+- Apply to all pages or specific pages
+
+### Rotate Pages
+
+Rotate PDF pages with precision:
+
+**Rotation Angles:**
+
+- 90° Clockwise (→)
+- 180° (full rotation)
+- 90° Counter-clockwise (←)
+
+**Page Selection:**
+
+- Rotate all pages
+- Specify individual pages (e.g., 1, 3, 5-10)
+- Support for page ranges
+
+### Add Page Numbers
+
+Professional page numbering with multiple formats:
+
+**Number Formats:**
+
+| Format      | Example      |
+| ----------- | ------------ |
+| Simple      | 1, 2, 3      |
+| With Total  | 1 / 10       |
+| Page X      | Page 1       |
+| Page X of Y | Page 1 of 10 |
+| Roman       | I, II, III   |
+| Letter      | A, B, C      |
+
+**Customization:**
+
+- 6 position options (corners and centers)
+- Custom start number
+- Prefix and suffix text
+- Font size adjustment
+- Skip first page (for covers)
+- Live preview of format
+
+### Unlock PDF
+
+Remove password protection from PDFs:
+
+- Enter existing password to unlock
+- Removes both user and owner passwords
+- Visual locked/unlocked indicator
+- Secure password input with visibility toggle
+
+### Reorder & Delete Pages
+
+Reorganize your PDF structure:
+
+**Features:**
+
+- Drag-and-drop page reordering
+- Visual page list with thumbnails
+- Mark pages for deletion
+- Real-time position tracking
+- Restore accidentally marked pages
+- Apply changes with confirmation
+
+### Batch Processing
+
+Process multiple PDFs simultaneously:
+
+**Supported Operations:**
+
+- Compress multiple files
+- Add watermark to multiple PDFs
+- Rotate pages in batch
+- Add page numbers to all files
+
+**Features:**
+
+- Add multiple files at once
+- Visual progress for each file
+- Success/failure tracking per file
+- Stop on error option
+- Detailed results summary
+- Concurrent processing (configurable)
+
 ### Settings
 
 Customize app behavior and preferences:
@@ -146,21 +249,29 @@ lib/
 │   │   ├── image_format.dart       # Image conversion options
 │   │   ├── security_options.dart   # Password & permissions
 │   │   ├── extraction_options.dart # Page extraction options
-│   │   └── operation_result.dart   # Result types
+│   │   ├── batch_options.dart      # Batch processing & advanced options
+│   │   └── operation_result.dart   # Result types (sealed classes)
 │   ├── providers/
 │   │   ├── recent_files_provider.dart  # Recent files state
 │   │   └── settings_provider.dart      # App settings state
 │   └── services/
-│       ├── pdf_service.dart        # PDF operations
+│       ├── pdf_service.dart        # Core PDF operations
+│       ├── pdf_processor.dart      # Advanced PDF processing
 │       └── file_service.dart       # File I/O operations
 ├── features/
-│   ├── home/                       # Main dashboard
+│   ├── home/                       # Main dashboard with tool grid
 │   ├── compress/                   # PDF compression
 │   ├── merge/                      # PDF merging
 │   ├── split/                      # PDF splitting
 │   ├── convert/                    # PDF to image
 │   ├── protect/                    # Password protection
 │   ├── extract/                    # Page extraction
+│   ├── watermark/                  # Add watermarks
+│   ├── rotate/                     # Rotate pages
+│   ├── pagenumbers/                # Add page numbers
+│   ├── unlock/                     # Remove passwords
+│   ├── reorder/                    # Reorder & delete pages
+│   ├── batch/                      # Batch processing
 │   └── settings/                   # App settings
 └── shared/
     ├── theme/
@@ -288,7 +399,7 @@ This project follows **Clean Architecture** principles with a **Feature-First** 
 This project follows Git Flow branching strategy:
 
 ```text
-main ──────────────────────────────────────
+main ──────────────────────────────────────────
   │
   └─> develop ──┬── feature/compress
                 ├── feature/merge
@@ -296,7 +407,8 @@ main ─────────────────────────
                 ├── feature/convert-to-image
                 ├── feature/password-protection
                 ├── feature/extract-pages
-                └── feature/ux-improvements
+                ├── feature/ux-improvements
+                └── feature/advanced-tools (watermark, rotate, etc.)
 ```
 
 ### Branches
@@ -322,14 +434,32 @@ main ─────────────────────────
 
 ### Colors
 
-| Tool | Color | Hex |
-|------|-------|-----|
+**Essential Tools:**
+
+| Tool     | Color | Hex       |
+| -------- | ----- | --------- |
 | Compress | Green | `#10B981` |
-| Merge | Blue | `#3B82F6` |
-| Split | Amber | `#F59E0B` |
-| Convert | Pink | `#EC4899` |
-| Protect | Purple | `#8B5CF6` |
-| Extract | Teal | `#14B8A6` |
+| Merge    | Blue  | `#3B82F6` |
+| Split    | Amber | `#F59E0B` |
+| Convert  | Pink  | `#EC4899` |
+
+**Page Tools:**
+
+| Tool     | Color  | Hex       |
+| -------- | ------ | --------- |
+| Extract  | Teal   | `#14B8A6` |
+| Rotate   | Orange | `#F97316` |
+| Reorder  | Indigo | `#6366F1` |
+| Numbers  | Lime   | `#84CC16` |
+
+**Security & Enhancement:**
+
+| Tool      | Color     | Hex       |
+| --------- | --------- | --------- |
+| Protect   | Purple    | `#8B5CF6` |
+| Unlock    | Red       | `#EF4444` |
+| Watermark | Sky Blue  | `#0EA5E9` |
+| Batch     | Violet    | `#A855F7` |
 
 ### Theme Support
 

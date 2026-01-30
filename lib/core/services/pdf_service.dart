@@ -10,6 +10,7 @@ import 'package:pdf_toolkit/core/models/image_format.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
 import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/models/security_options.dart';
+import 'package:pdf_toolkit/core/models/extraction_options.dart';
 
 /// Service for PDF manipulation operations
 class PdfService {
@@ -526,6 +527,88 @@ class PdfService {
       stopwatch.stop();
       return OperationFailure(
         error: 'Failed to protect PDF',
+        details: e.toString(),
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Extract specific pages from PDF
+  Future<OperationResult<ExtractionResult>> extractPages({
+    required String inputPath,
+    required String outputPath,
+    required ExtractionOptions options,
+    required int totalPages,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      onProgress?.call(0.1, 'Loading PDF...');
+
+      final inputFile = File(inputPath);
+      if (!await inputFile.exists()) {
+        return const OperationFailure(error: 'Input file not found');
+      }
+
+      final inputBytes = await inputFile.readAsBytes();
+      final inputDocument = PdfDocument(inputBytes: inputBytes);
+
+      onProgress?.call(0.2, 'Analyzing pages...');
+
+      // Get pages to extract
+      final pagesToExtract = options.getEffectivePages(inputDocument.pages.count);
+
+      if (pagesToExtract.isEmpty) {
+        inputDocument.dispose();
+        return const OperationFailure(error: 'No valid pages selected');
+      }
+
+      onProgress?.call(0.3, 'Extracting pages...');
+
+      // Create output document
+      final outputDocument = PdfDocument();
+
+      for (int i = 0; i < pagesToExtract.length; i++) {
+        final pageIndex = pagesToExtract[i];
+        final progress = 0.3 + (0.6 * (i / pagesToExtract.length));
+        onProgress?.call(progress, 'Extracting page ${pageIndex + 1}...');
+
+        // Copy page to new document
+        final template = inputDocument.pages[pageIndex].createTemplate();
+        final page = outputDocument.pages.add();
+        page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+      }
+
+      inputDocument.dispose();
+
+      onProgress?.call(0.9, 'Saving extracted PDF...');
+
+      // Save output document
+      final outputBytes = await outputDocument.save();
+      outputDocument.dispose();
+
+      final outputFile = File(outputPath);
+      await outputFile.writeAsBytes(outputBytes);
+
+      onProgress?.call(1.0, 'Complete!');
+
+      stopwatch.stop();
+
+      return OperationSuccess(
+        data: ExtractionResult(
+          outputPath: outputPath,
+          extractedPages: pagesToExtract.length,
+          outputSize: outputBytes.length,
+          processingTime: stopwatch.elapsed,
+        ),
+        message: 'Pages extracted successfully',
+        duration: stopwatch.elapsed,
+      );
+    } catch (e, stackTrace) {
+      stopwatch.stop();
+      return OperationFailure(
+        error: 'Failed to extract pages',
         details: e.toString(),
         stackTrace: stackTrace,
       );

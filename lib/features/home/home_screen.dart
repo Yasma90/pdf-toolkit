@@ -7,6 +7,7 @@ import 'package:pdf_toolkit/features/merge/merge_screen.dart';
 import 'package:pdf_toolkit/features/split/split_screen.dart';
 import 'package:pdf_toolkit/features/convert/convert_screen.dart';
 import 'package:pdf_toolkit/features/protect/protect_screen.dart';
+import 'package:pdf_toolkit/features/extract/extract_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -131,7 +132,7 @@ class HomeScreen extends ConsumerWidget {
                     subtitle: 'Get pages',
                     icon: Icons.content_cut,
                     color: AppColors.extractColor,
-                    onTap: () => _showComingSoon(context),
+                    onTap: () => _navigateTo(context, const ExtractScreen()),
                   ),
                 ]),
               ),

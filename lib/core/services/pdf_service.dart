@@ -9,6 +9,7 @@ import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/image_format.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
 import 'package:pdf_toolkit/core/models/pdf_file.dart';
+import 'package:pdf_toolkit/core/models/security_options.dart';
 
 /// Service for PDF manipulation operations
 class PdfService {
@@ -416,6 +417,118 @@ class PdfService {
       return Uint8List(0); // Placeholder - actual impl in screen
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Protect PDF with password and permissions
+  Future<OperationResult<ProtectionResult>> protectPdf({
+    required String inputPath,
+    required String outputPath,
+    required SecurityOptions options,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      onProgress?.call(0.1, 'Loading PDF...');
+
+      final inputFile = File(inputPath);
+      if (!await inputFile.exists()) {
+        return const OperationFailure(error: 'Input file not found');
+      }
+
+      final inputBytes = await inputFile.readAsBytes();
+      final document = PdfDocument(inputBytes: inputBytes);
+
+      onProgress?.call(0.3, 'Configuring security...');
+
+      // Create security settings based on encryption level
+      final PdfSecurity security = document.security;
+
+      // Set encryption algorithm
+      switch (options.encryptionLevel) {
+        case EncryptionLevel.rc4_40:
+          security.algorithm = PdfEncryptionAlgorithm.rc4x40Bit;
+          break;
+        case EncryptionLevel.rc4_128:
+          security.algorithm = PdfEncryptionAlgorithm.rc4x128Bit;
+          break;
+        case EncryptionLevel.aes128:
+          security.algorithm = PdfEncryptionAlgorithm.aesx128Bit;
+          break;
+        case EncryptionLevel.aes256:
+          security.algorithm = PdfEncryptionAlgorithm.aesx256Bit;
+          break;
+      }
+
+      onProgress?.call(0.5, 'Setting passwords...');
+
+      // Set passwords
+      security.userPassword = options.userPassword;
+      security.ownerPassword = options.effectiveOwnerPassword;
+
+      onProgress?.call(0.6, 'Applying permissions...');
+
+      // Set permissions
+      final perms = options.permissions;
+      security.permissions.clear();
+
+      if (perms.allowPrinting) {
+        security.permissions.add(PdfPermissionsFlags.print);
+      }
+      if (perms.allowModifying) {
+        security.permissions.add(PdfPermissionsFlags.editContent);
+      }
+      if (perms.allowCopying) {
+        security.permissions.add(PdfPermissionsFlags.copyContent);
+      }
+      if (perms.allowAnnotations) {
+        security.permissions.add(PdfPermissionsFlags.editAnnotations);
+      }
+      if (perms.allowFillingForms) {
+        security.permissions.add(PdfPermissionsFlags.fillFields);
+      }
+      if (perms.allowAccessibility) {
+        security.permissions.add(PdfPermissionsFlags.accessibilityCopyContent);
+      }
+      if (perms.allowAssembly) {
+        security.permissions.add(PdfPermissionsFlags.assembleDocument);
+      }
+      if (perms.allowHighQualityPrint) {
+        security.permissions.add(PdfPermissionsFlags.fullQualityPrint);
+      }
+
+      onProgress?.call(0.8, 'Saving protected PDF...');
+
+      // Save the protected document
+      final protectedBytes = await document.save();
+      document.dispose();
+
+      final outputFile = File(outputPath);
+      await outputFile.writeAsBytes(protectedBytes);
+
+      onProgress?.call(1.0, 'Complete!');
+
+      stopwatch.stop();
+
+      return OperationSuccess(
+        data: ProtectionResult(
+          outputPath: outputPath,
+          encryptionLevel: options.encryptionLevel,
+          hasUserPassword: options.userPassword.isNotEmpty,
+          hasOwnerPassword: options.ownerPassword != null,
+          processingTime: stopwatch.elapsed,
+        ),
+        message: 'PDF protected successfully',
+        duration: stopwatch.elapsed,
+      );
+    } catch (e, stackTrace) {
+      stopwatch.stop();
+      return OperationFailure(
+        error: 'Failed to protect PDF',
+        details: e.toString(),
+        stackTrace: stackTrace,
+      );
     }
   }
 

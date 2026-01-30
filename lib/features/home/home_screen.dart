@@ -6,6 +6,7 @@ import 'package:pdf_toolkit/features/compress/compress_screen.dart';
 import 'package:pdf_toolkit/features/merge/merge_screen.dart';
 import 'package:pdf_toolkit/features/split/split_screen.dart';
 import 'package:pdf_toolkit/features/convert/convert_screen.dart';
+import 'package:pdf_toolkit/features/protect/protect_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -123,7 +124,7 @@ class HomeScreen extends ConsumerWidget {
                     subtitle: 'Add password',
                     icon: Icons.lock_outline,
                     color: AppColors.protectColor,
-                    onTap: () => _showComingSoon(context),
+                    onTap: () => _navigateTo(context, const ProtectScreen()),
                   ),
                   ToolCard(
                     title: 'Extract',

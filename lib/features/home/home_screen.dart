@@ -5,6 +5,7 @@ import 'package:pdf_toolkit/shared/widgets/tool_card.dart';
 import 'package:pdf_toolkit/features/compress/compress_screen.dart';
 import 'package:pdf_toolkit/features/merge/merge_screen.dart';
 import 'package:pdf_toolkit/features/split/split_screen.dart';
+import 'package:pdf_toolkit/features/convert/convert_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -115,7 +116,7 @@ class HomeScreen extends ConsumerWidget {
                     subtitle: 'PDF to Image',
                     icon: Icons.transform,
                     color: AppColors.convertColor,
-                    onTap: () => _showComingSoon(context),
+                    onTap: () => _navigateTo(context, const ConvertScreen()),
                   ),
                   ToolCard(
                     title: 'Protect',

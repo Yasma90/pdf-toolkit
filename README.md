@@ -399,7 +399,7 @@ This project follows **Clean Architecture** principles with a **Feature-First** 
 This project follows Git Flow branching strategy:
 
 ```text
-main ──────────────────────────────────────────
+master ────────────────────────────────────────
   │
   └─> develop ──┬── feature/compress
                 ├── feature/merge
@@ -414,8 +414,8 @@ main ─────────────────────────
 ### Branches
 
 | Branch | Purpose |
-|--------|---------|
-| `main` | Production releases |
+| ------ | ------- |
+| `master` | Production releases |
 | `develop` | Integration branch |
 | `feature/*` | New features |
 | `hotfix/*` | Production fixes |

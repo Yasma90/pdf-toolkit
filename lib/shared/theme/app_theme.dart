@@ -15,6 +15,14 @@ class AppColors {
   static const protectColor = Color(0xFF8B5CF6);
   static const extractColor = Color(0xFF14B8A6);
 
+  // Advanced tools colors
+  static const watermarkColor = Color(0xFF0EA5E9);   // Sky blue
+  static const rotateColor = Color(0xFFF97316);      // Orange
+  static const pageNumbersColor = Color(0xFF84CC16); // Lime
+  static const unlockColor = Color(0xFFEF4444);      // Red
+  static const reorderColor = Color(0xFF6366F1);     // Indigo
+  static const batchColor = Color(0xFFA855F7);       // Purple
+
   // Neutral colors
   static const background = Color(0xFFF8FAFC);
   static const backgroundDark = Color(0xFF0F172A);

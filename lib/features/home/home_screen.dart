@@ -8,6 +8,8 @@ import 'package:pdf_toolkit/features/split/split_screen.dart';
 import 'package:pdf_toolkit/features/convert/convert_screen.dart';
 import 'package:pdf_toolkit/features/protect/protect_screen.dart';
 import 'package:pdf_toolkit/features/extract/extract_screen.dart';
+import 'package:pdf_toolkit/features/settings/settings_screen.dart';
+import 'package:pdf_toolkit/core/providers/recent_files_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -15,6 +17,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDesktop = MediaQuery.of(context).size.width > 600;
+    final recentFiles = ref.watch(recentFilesProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -44,28 +47,37 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'PDF Toolkit',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            Text(
-                              'All-in-one PDF solution',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                            ),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'PDF Toolkit',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              Text(
+                                'All-in-one PDF solution',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _navigateTo(context, const SettingsScreen()),
+                          icon: const Icon(Icons.settings_outlined),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.surface,
+                          ),
                         ),
                       ],
                     ),
@@ -156,14 +168,20 @@ class HomeScreen extends ConsumerWidget {
                                     fontWeight: FontWeight.w600,
                                   ),
                         ),
-                        TextButton(
-                          onPressed: () {},
-                          child: const Text('View All'),
-                        ),
+                        if (recentFiles.isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              ref.read(recentFilesProvider.notifier).clearAll();
+                            },
+                            child: const Text('Clear All'),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const RecentFilesPlaceholder(),
+                    if (recentFiles.isEmpty)
+                      const RecentFilesPlaceholder()
+                    else
+                      RecentFilesList(files: recentFiles),
                   ],
                 ),
               ),
@@ -178,17 +196,6 @@ class HomeScreen extends ConsumerWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => screen),
-    );
-  }
-
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Coming soon!'),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        duration: const Duration(seconds: 2),
-      ),
     );
   }
 }
@@ -231,6 +238,127 @@ class RecentFilesPlaceholder extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class RecentFilesList extends StatelessWidget {
+  final List<RecentFileEntry> files;
+
+  const RecentFilesList({super.key, required this.files});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: files.take(5).map((file) => _RecentFileItem(file: file)).toList(),
+    );
+  }
+}
+
+class _RecentFileItem extends StatelessWidget {
+  final RecentFileEntry file;
+
+  const _RecentFileItem({required this.file});
+
+  Color _getOperationColor() {
+    switch (file.operation.toLowerCase()) {
+      case 'compress':
+        return AppColors.compressColor;
+      case 'merge':
+        return AppColors.mergeColor;
+      case 'split':
+        return AppColors.splitColor;
+      case 'convert':
+        return AppColors.convertColor;
+      case 'protect':
+        return AppColors.protectColor;
+      case 'extract':
+        return AppColors.extractColor;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  IconData _getOperationIcon() {
+    switch (file.operation.toLowerCase()) {
+      case 'compress':
+        return Icons.compress;
+      case 'merge':
+        return Icons.merge_type;
+      case 'split':
+        return Icons.call_split;
+      case 'convert':
+        return Icons.transform;
+      case 'protect':
+        return Icons.lock_outline;
+      case 'extract':
+        return Icons.content_cut;
+      default:
+        return Icons.picture_as_pdf;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _getOperationColor();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(_getOperationIcon(), color: color, size: 24),
+        ),
+        title: Text(
+          file.fileName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                file.operation,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              file.formattedSize,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              file.formattedDate,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          // Could open file location or re-process
+        },
       ),
     );
   }

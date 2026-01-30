@@ -5,6 +5,7 @@ A powerful, cross-platform PDF manipulation application built with Flutter for W
 ## Features
 
 ### Compress PDF
+
 Reduce PDF file size with multiple compression levels:
 
 | Level | Quality | Expected Reduction | Best For |
@@ -15,25 +16,31 @@ Reduce PDF file size with multiple compression levels:
 | Extreme | 30% | 70-90% | Quick previews |
 
 **Advanced Options:**
+
 - Compress images within PDF
 - Remove metadata (author, title, etc.)
 - Remove annotations and comments
 - Optimize for web (linearization)
 
 ### Merge PDFs
+
 Combine multiple PDF files into a single document:
+
 - Select multiple PDF files
 - Drag-and-drop to reorder files
 - Visual list with file sizes
 - Progress indicator during merge
 
 ### Split PDF
+
 Divide a PDF into multiple files:
+
 - **Every Page**: Create one PDF per page
 - **By Page Count**: Specify number of pages per file
 - Automatic file naming
 
 ### Convert to Images
+
 Export PDF pages as images:
 
 | Quality | DPI | Use Case |
@@ -44,26 +51,31 @@ Export PDF pages as images:
 | Print | 600 | Professional printing |
 
 **Supported Formats:**
+
 - PNG (lossless, transparency support)
 - JPEG (smaller files)
 - WebP (modern, best compression)
 
 ### Protect PDF
+
 Add password protection and permissions:
 
 **Encryption Levels:**
+
 - RC4 40-bit (legacy compatibility)
 - RC4 128-bit (good compatibility)
 - AES 128-bit (strong security)
 - AES 256-bit (maximum security - recommended)
 
 **Permission Presets:**
+
 - Full Access: All operations allowed
 - No Modifications: Print and copy only
 - View Only: No print, copy, or modify
 - Custom: Configure individual permissions
 
 **Granular Permissions:**
+
 - Printing (standard/high quality)
 - Content modification
 - Content copying
@@ -73,11 +85,44 @@ Add password protection and permissions:
 - Accessibility access
 
 ### Extract Pages
+
 Extract specific pages from a PDF:
+
 - **Select Pages**: Choose individual pages visually
 - **Page Range**: Enter range (e.g., 1-5)
 - **Odd Pages**: Extract pages 1, 3, 5...
 - **Even Pages**: Extract pages 2, 4, 6...
+
+### Settings
+
+Customize app behavior and preferences:
+
+**Appearance:**
+
+- Theme selection: System / Light / Dark
+- Smooth theme transitions
+
+**Output Configuration:**
+
+- Custom output folder selection
+- Auto-open files after processing
+- Default compression level
+- Default image format
+
+**Data Management:**
+
+- Clear recent files history
+- Persistent settings across sessions
+
+### Recent Files
+
+Track your processed files:
+
+- Last 20 files with operation history
+- Quick access from home screen
+- File size and processing time
+- Operation type indicator with color coding
+- Relative timestamps ("5m ago", "2h ago")
 
 ## Tech Stack
 
@@ -92,7 +137,7 @@ Extract specific pages from a PDF:
 
 ## Project Structure
 
-```
+```text
 lib/
 ├── core/
 │   ├── models/
@@ -102,6 +147,9 @@ lib/
 │   │   ├── security_options.dart   # Password & permissions
 │   │   ├── extraction_options.dart # Page extraction options
 │   │   └── operation_result.dart   # Result types
+│   ├── providers/
+│   │   ├── recent_files_provider.dart  # Recent files state
+│   │   └── settings_provider.dart      # App settings state
 │   └── services/
 │       ├── pdf_service.dart        # PDF operations
 │       └── file_service.dart       # File I/O operations
@@ -112,7 +160,8 @@ lib/
 │   ├── split/                      # PDF splitting
 │   ├── convert/                    # PDF to image
 │   ├── protect/                    # Password protection
-│   └── extract/                    # Page extraction
+│   ├── extract/                    # Page extraction
+│   └── settings/                   # App settings
 └── shared/
     ├── theme/
     │   └── app_theme.dart          # Material 3 theming
@@ -130,21 +179,25 @@ lib/
 - Dart SDK 3.2.0 or higher
 - Android Studio / VS Code with Flutter extensions
 - For Windows: Visual Studio 2022 with C++ desktop development
+- For Android: Android SDK with API level 21+
 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/pdf-toolkit.git
 cd pdf-toolkit
 ```
 
 2. Install dependencies:
+
 ```bash
 flutter pub get
 ```
 
 3. Run the app:
+
 ```bash
 # For Android
 flutter run -d android
@@ -155,16 +208,54 @@ flutter run -d windows
 
 ### Building for Production
 
+#### Using Build Scripts (Recommended)
+
+**Windows (PowerShell):**
+
+```powershell
+# Build both Android and Windows
+.\scripts\build.ps1 -target all
+
+# Build only Android APK
+.\scripts\build.ps1 -target android
+
+# Build only Windows executable
+.\scripts\build.ps1 -target windows
+```
+
+**Linux/macOS (Bash):**
+
+```bash
+# Build both platforms
+./scripts/build.sh all
+
+# Build only Android
+./scripts/build.sh android
+```
+
+#### Manual Build Commands
+
 ```bash
 # Android APK
 flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
 
 # Android App Bundle (Play Store)
 flutter build appbundle --release
+# Output: build/app/outputs/bundle/release/app-release.aab
 
-# Windows MSIX
+# Windows Executable
 flutter build windows --release
+# Output: build/windows/x64/runner/Release/
 ```
+
+### Build Output Locations
+
+| Platform | Build Type | Output Path |
+|----------|------------|-------------|
+| Android | APK | `build/app/outputs/flutter-apk/app-release.apk` |
+| Android | AAB | `build/app/outputs/bundle/release/app-release.aab` |
+| Windows | EXE | `build/windows/x64/runner/Release/pdf_toolkit.exe` |
 
 ## Architecture
 
@@ -172,7 +263,7 @@ This project follows **Clean Architecture** principles with a **Feature-First** 
 
 ### Layers
 
-```
+```text
 ┌─────────────────────────────────────┐
 │           Presentation              │  Screens, Widgets
 ├─────────────────────────────────────┤
@@ -190,12 +281,13 @@ This project follows **Clean Architecture** principles with a **Feature-First** 
 - **Riverpod**: Dependency injection and reactive state
 - **Immutable Models**: `copyWith` pattern for state updates
 - **Service Layer**: Business logic separated from UI
+- **Persistent Storage**: JSON-based settings and history
 
 ## Git Flow
 
 This project follows Git Flow branching strategy:
 
-```
+```text
 main ──────────────────────────────────────
   │
   └─> develop ──┬── feature/compress
@@ -203,7 +295,8 @@ main ─────────────────────────
                 ├── feature/split
                 ├── feature/convert-to-image
                 ├── feature/password-protection
-                └── feature/extract-pages
+                ├── feature/extract-pages
+                └── feature/ux-improvements
 ```
 
 ### Branches
@@ -215,6 +308,15 @@ main ─────────────────────────
 | `feature/*` | New features |
 | `hotfix/*` | Production fixes |
 | `release/*` | Release preparation |
+
+### Feature Development Workflow
+
+1. Create feature branch from `develop`
+2. Implement feature with tests
+3. **Document feature in README**
+4. Commit with conventional commits
+5. Merge to `develop` with `--no-ff`
+6. Delete feature branch
 
 ## Design System
 
@@ -232,9 +334,10 @@ main ─────────────────────────
 ### Theme Support
 
 - Light mode (default)
-- Dark mode (system preference)
+- Dark mode (system preference or manual)
 - Material Design 3 components
 - Responsive layouts (mobile/desktop)
+- Persistent theme preference
 
 ## Dependencies
 
@@ -250,34 +353,55 @@ dependencies:
   percent_indicator: ^4.2.3     # Progress UI
 ```
 
+## Data Storage
+
+The app stores data locally in JSON format:
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `settings.json` | Documents/PDF Toolkit/ | App preferences |
+| `recent_files.json` | Documents/PDF Toolkit/ | Processing history |
+
 ## Contributing
 
 1. Fork the repository
+
 2. Create your feature branch:
+
    ```bash
+   git checkout develop
    git checkout -b feature/amazing-feature
    ```
-3. Commit your changes:
+
+3. Implement and **document** your feature
+
+4. Commit your changes:
+
    ```bash
    git commit -m 'feat: add amazing feature'
    ```
-4. Push to the branch:
+
+5. Push to the branch:
+
    ```bash
    git push origin feature/amazing-feature
    ```
-5. Open a Pull Request
+
+6. Open a Pull Request to `develop`
 
 ### Commit Convention
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation
-- `style:` Formatting
-- `refactor:` Code restructuring
-- `test:` Tests
-- `chore:` Maintenance
+| Prefix | Purpose |
+|--------|---------|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `docs:` | Documentation |
+| `style:` | Formatting |
+| `refactor:` | Code restructuring |
+| `test:` | Tests |
+| `chore:` | Maintenance |
 
 ## License
 

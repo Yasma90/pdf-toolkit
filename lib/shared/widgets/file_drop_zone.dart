@@ -55,7 +55,7 @@ class _FileDropZoneState extends State<FileDropZone>
     return GestureDetector(
       onTap: widget.isLoading ? null : widget.onTap,
       child: AnimatedBuilder(
-        animation: _pulseAnimation,
+        listenable: _pulseAnimation,
         builder: (context, child) {
           return Transform.scale(
             scale: hasFile ? 1.0 : _pulseAnimation.value,

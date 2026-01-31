@@ -230,11 +230,9 @@ class PageNumbersScreen extends ConsumerWidget {
           PageNumbersState.success(result.data);
 
       // Add to recent files
-      ref.read(recentFilesProvider.notifier).addFile(
-        fileName: selectedFile.fileName,
+      ref.read(recentFilesProvider.notifier).addEntry(
         filePath: result.data,
         operation: 'Page Numbers',
-        fileSize: selectedFile.fileSize,
       );
     } else if (result is OperationFailure<String>) {
       ref.read(pageNumbersStateProvider.notifier).state =

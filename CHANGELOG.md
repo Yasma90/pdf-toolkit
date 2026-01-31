@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-01-31
+
+### Fixed
+
+- Resolved PdfDocument import conflict between `pdf` and `syncfusion_flutter_pdf` packages
+- Fixed AnimatedBuilder widget parameter mismatch (changed `animation` to `listenable`)
+- Corrected RecentFilesNotifier method calls (changed `addFile` to `addEntry`)
+- Fixed PdfFile property access (changed `fileSize` to `sizeInBytes`)
+- Fixed FileDropZone and pickPdfFiles parameter names (changed `allowMultiple` to `multiple`)
+- Added missing OperationResult import in batch_screen.dart
+
+### Changed
+
+- Updated Android compileSdk from 34 to 35 (required by flutter_plugin_android_lifecycle)
+- Updated Android NDK version to 25.1.8937393 (required by multiple plugins)
+
 ## [1.0.0] - 2026-01-30
 
 ### Added

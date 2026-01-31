@@ -59,7 +59,7 @@ class _ToolCardState extends State<ToolCard>
         },
         onTapCancel: () => _controller.reverse(),
         child: AnimatedBuilder(
-          animation: _scaleAnimation,
+          listenable: _scaleAnimation,
           builder: (context, child) {
             return Transform.scale(
               scale: _scaleAnimation.value,

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
 import 'package:path/path.dart' as path;
 import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/image_format.dart';
@@ -37,7 +37,7 @@ class PdfService {
       onProgress?.call(0.3, 'Analyzing document...');
 
       // Load PDF document
-      final document = PdfDocument(inputBytes: inputBytes);
+      final document = syncfusion.PdfDocument(inputBytes: inputBytes);
       final pageCount = document.pages.count;
 
       onProgress?.call(0.4, 'Compressing images...');
@@ -119,7 +119,7 @@ class PdfService {
 
       onProgress?.call(0.1, 'Preparing merge...');
 
-      final outputDocument = PdfDocument();
+      final outputDocument = syncfusion.PdfDocument();
       int totalPages = 0;
 
       for (int i = 0; i < inputPaths.length; i++) {
@@ -133,7 +133,7 @@ class PdfService {
         }
 
         final inputBytes = await inputFile.readAsBytes();
-        final inputDocument = PdfDocument(inputBytes: inputBytes);
+        final inputDocument = syncfusion.PdfDocument(inputBytes: inputBytes);
 
         // Import all pages from the input document
         for (int j = 0; j < inputDocument.pages.count; j++) {
@@ -141,7 +141,7 @@ class PdfService {
           final page = outputDocument.pages.add();
           page.graphics.drawPdfTemplate(
             template,
-            const Offset(0, 0),
+            const ui.Offset(0, 0),
           );
           totalPages++;
         }
@@ -202,7 +202,7 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final inputDocument = PdfDocument(inputBytes: inputBytes);
+      final inputDocument = syncfusion.PdfDocument(inputBytes: inputBytes);
       final totalPages = inputDocument.pages.count;
       final baseName = path.basenameWithoutExtension(inputPath);
 
@@ -215,10 +215,10 @@ class PdfService {
             final progress = 0.1 + (0.8 * (i / totalPages));
             onProgress?.call(progress, 'Creating page ${i + 1} of $totalPages...');
 
-            final outputDoc = PdfDocument();
+            final outputDoc = syncfusion.PdfDocument();
             final template = inputDocument.pages[i].createTemplate();
             final page = outputDoc.pages.add();
-            page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+            page.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
 
             final outputPath = path.join(
               outputDirectory,
@@ -228,7 +228,7 @@ class PdfService {
             await File(outputPath).writeAsBytes(bytes);
 
             outputPaths.add(outputPath);
-            totalSize += bytes.length;
+            totalSize += bytes.length as int;
             outputDoc.dispose();
           }
           break;
@@ -241,13 +241,13 @@ class PdfService {
             final progress = 0.1 + (0.8 * (i / totalPages));
             onProgress?.call(progress, 'Creating file $fileIndex...');
 
-            final outputDoc = PdfDocument();
+            final outputDoc = syncfusion.PdfDocument();
             final endPage = (i + perFile).clamp(0, totalPages);
 
             for (int j = i; j < endPage; j++) {
               final template = inputDocument.pages[j].createTemplate();
               final page = outputDoc.pages.add();
-              page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+              page.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
             }
 
             final outputPath = path.join(
@@ -258,7 +258,7 @@ class PdfService {
             await File(outputPath).writeAsBytes(bytes);
 
             outputPaths.add(outputPath);
-            totalSize += bytes.length;
+            totalSize += bytes.length as int;
             outputDoc.dispose();
             fileIndex++;
           }
@@ -316,7 +316,7 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final document = PdfDocument(inputBytes: inputBytes);
+      final document = syncfusion.PdfDocument(inputBytes: inputBytes);
       final totalPages = document.pages.count;
       final baseName = path.basenameWithoutExtension(inputPath);
 
@@ -389,7 +389,7 @@ class PdfService {
 
   /// Render a PDF page to image bytes
   Future<Uint8List?> _renderPageToImage(
-    PdfDocument document,
+    syncfusion.PdfDocument document,
     int pageIndex,
     int dpi,
     ImageFormat format,
@@ -403,7 +403,7 @@ class PdfService {
       // Note: Full rendering requires platform-specific implementation
       // This is a simplified version using Syncfusion's capabilities
 
-      final PdfPageLayer layer = page.layers.add(name: 'ImageLayer');
+      final syncfusion.PdfPageLayer layer = page.layers.add(name: 'ImageLayer');
 
       // For actual image rendering, we'll use the printing package
       // which provides rasterization capabilities
@@ -439,26 +439,26 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final document = PdfDocument(inputBytes: inputBytes);
+      final document = syncfusion.PdfDocument(inputBytes: inputBytes);
 
       onProgress?.call(0.3, 'Configuring security...');
 
       // Create security settings based on encryption level
-      final PdfSecurity security = document.security;
+      final syncfusion.PdfSecurity security = document.security;
 
       // Set encryption algorithm
       switch (options.encryptionLevel) {
         case EncryptionLevel.rc4_40:
-          security.algorithm = PdfEncryptionAlgorithm.rc4x40Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.rc4x40Bit;
           break;
         case EncryptionLevel.rc4_128:
-          security.algorithm = PdfEncryptionAlgorithm.rc4x128Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.rc4x128Bit;
           break;
         case EncryptionLevel.aes128:
-          security.algorithm = PdfEncryptionAlgorithm.aesx128Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.aesx128Bit;
           break;
         case EncryptionLevel.aes256:
-          security.algorithm = PdfEncryptionAlgorithm.aesx256Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.aesx256Bit;
           break;
       }
 
@@ -475,28 +475,28 @@ class PdfService {
       security.permissions.clear();
 
       if (perms.allowPrinting) {
-        security.permissions.add(PdfPermissionsFlags.print);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.print);
       }
       if (perms.allowModifying) {
-        security.permissions.add(PdfPermissionsFlags.editContent);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.editContent);
       }
       if (perms.allowCopying) {
-        security.permissions.add(PdfPermissionsFlags.copyContent);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.copyContent);
       }
       if (perms.allowAnnotations) {
-        security.permissions.add(PdfPermissionsFlags.editAnnotations);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.editAnnotations);
       }
       if (perms.allowFillingForms) {
-        security.permissions.add(PdfPermissionsFlags.fillFields);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.fillFields);
       }
       if (perms.allowAccessibility) {
-        security.permissions.add(PdfPermissionsFlags.accessibilityCopyContent);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.accessibilityCopyContent);
       }
       if (perms.allowAssembly) {
-        security.permissions.add(PdfPermissionsFlags.assembleDocument);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.assembleDocument);
       }
       if (perms.allowHighQualityPrint) {
-        security.permissions.add(PdfPermissionsFlags.fullQualityPrint);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.fullQualityPrint);
       }
 
       onProgress?.call(0.8, 'Saving protected PDF...');
@@ -552,7 +552,7 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final inputDocument = PdfDocument(inputBytes: inputBytes);
+      final inputDocument = syncfusion.PdfDocument(inputBytes: inputBytes);
 
       onProgress?.call(0.2, 'Analyzing pages...');
 
@@ -567,7 +567,7 @@ class PdfService {
       onProgress?.call(0.3, 'Extracting pages...');
 
       // Create output document
-      final outputDocument = PdfDocument();
+      final outputDocument = syncfusion.PdfDocument();
 
       for (int i = 0; i < pagesToExtract.length; i++) {
         final pageIndex = pagesToExtract[i];
@@ -577,7 +577,7 @@ class PdfService {
         // Copy page to new document
         final template = inputDocument.pages[pageIndex].createTemplate();
         final page = outputDocument.pages.add();
-        page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+        page.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
       }
 
       inputDocument.dispose();
@@ -622,7 +622,7 @@ class PdfService {
       if (!await file.exists()) return null;
 
       final bytes = await file.readAsBytes();
-      final document = PdfDocument(inputBytes: bytes);
+      final document = syncfusion.PdfDocument(inputBytes: bytes);
 
       final metadata = PdfMetadata(
         pageCount: document.pages.count,
@@ -642,7 +642,7 @@ class PdfService {
   }
 
   /// Apply image compression to document
-  void _compressImagesInDocument(PdfDocument document, CompressionOptions options) {
+  void _compressImagesInDocument(syncfusion.PdfDocument document, CompressionOptions options) {
     // Syncfusion PDF handles compression internally
     // For more advanced compression, we'd iterate through images
     // and re-encode them with lower quality

@@ -342,11 +342,9 @@ class ReorderScreen extends ConsumerWidget {
           ReorderState.success(result.data);
 
       // Add to recent files
-      ref.read(recentFilesProvider.notifier).addFile(
-        fileName: selectedFile.fileName,
+      ref.read(recentFilesProvider.notifier).addEntry(
         filePath: result.data,
         operation: 'Reorder',
-        fileSize: selectedFile.fileSize,
       );
     } else if (result is OperationFailure<String>) {
       ref.read(reorderStateProvider.notifier).state =

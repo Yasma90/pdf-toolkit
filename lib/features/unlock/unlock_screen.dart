@@ -256,11 +256,9 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
           UnlockState.success(result.data);
 
       // Add to recent files
-      ref.read(recentFilesProvider.notifier).addFile(
-        fileName: selectedFile.fileName,
+      ref.read(recentFilesProvider.notifier).addEntry(
         filePath: result.data,
         operation: 'Unlock',
-        fileSize: selectedFile.fileSize,
       );
     } else if (result is OperationFailure<String>) {
       ref.read(unlockStateProvider.notifier).state =

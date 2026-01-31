@@ -369,6 +369,10 @@ class PdfService {
   }
 
   /// Merge multiple PDF files into one
+  ///
+  /// Preserves original page properties including:
+  /// - Page size and margins
+  /// - Visual content layout
   Future<OperationResult<MergeResult>> mergePdfs({
     required List<String> inputPaths,
     required String outputPath,
@@ -397,19 +401,28 @@ class PdfService {
 
         final inputFile = File(inputPath);
         if (!await inputFile.exists()) {
+          outputDocument.dispose();
           return OperationFailure(error: 'File not found: ${path.basename(inputPath)}');
         }
 
         final inputBytes = await inputFile.readAsBytes();
         final inputDocument = syncfusion.PdfDocument(inputBytes: inputBytes);
 
-        // Import all pages from the input document
+        // Import all pages preserving original page size
         for (int j = 0; j < inputDocument.pages.count; j++) {
-          final template = inputDocument.pages[j].createTemplate();
+          final sourcePage = inputDocument.pages[j];
+          final template = sourcePage.createTemplate();
+
+          // Add page with the SAME size as the source page
+          // This preserves the original page dimensions and margins
           final page = outputDocument.pages.add();
+          page.size = sourcePage.size;
+
+          // Draw at (0,0) with the original page size
           page.graphics.drawPdfTemplate(
             template,
             const ui.Offset(0, 0),
+            sourcePage.size,
           );
           totalPages++;
         }
@@ -451,6 +464,10 @@ class PdfService {
   }
 
   /// Split a PDF file into multiple files
+  ///
+  /// Preserves original page properties including:
+  /// - Page size and margins
+  /// - Visual content layout
   Future<OperationResult<SplitResult>> splitPdf({
     required String inputPath,
     required String outputDirectory,
@@ -483,10 +500,18 @@ class PdfService {
             final progress = 0.1 + (0.8 * (i / totalPages));
             onProgress?.call(progress, 'Creating page ${i + 1} of $totalPages...');
 
+            final sourcePage = inputDocument.pages[i];
+            final template = sourcePage.createTemplate();
+
             final outputDoc = syncfusion.PdfDocument();
-            final template = inputDocument.pages[i].createTemplate();
+            // Add page with the SAME size as the source page
             final page = outputDoc.pages.add();
-            page.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
+            page.size = sourcePage.size;
+            page.graphics.drawPdfTemplate(
+              template,
+              const ui.Offset(0, 0),
+              sourcePage.size,
+            );
 
             final outputPath = path.join(
               outputDirectory,
@@ -512,10 +537,17 @@ class PdfService {
             final outputDoc = syncfusion.PdfDocument();
             final endPage = (i + perFile).clamp(0, totalPages);
 
+            // Add pages preserving original size
             for (int j = i; j < endPage; j++) {
-              final template = inputDocument.pages[j].createTemplate();
+              final sourcePage = inputDocument.pages[j];
+              final template = sourcePage.createTemplate();
               final page = outputDoc.pages.add();
-              page.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
+              page.size = sourcePage.size;
+              page.graphics.drawPdfTemplate(
+                template,
+                const ui.Offset(0, 0),
+                sourcePage.size,
+              );
             }
 
             final outputPath = path.join(
@@ -802,6 +834,10 @@ class PdfService {
   }
 
   /// Extract specific pages from PDF
+  ///
+  /// Preserves original page properties including:
+  /// - Page size and margins
+  /// - Visual content layout
   Future<OperationResult<ExtractionResult>> extractPages({
     required String inputPath,
     required String outputPath,
@@ -842,10 +878,16 @@ class PdfService {
         final progress = 0.3 + (0.6 * (i / pagesToExtract.length));
         onProgress?.call(progress, 'Extracting page ${pageIndex + 1}...');
 
-        // Copy page to new document
-        final template = inputDocument.pages[pageIndex].createTemplate();
+        // Copy page preserving original size
+        final sourcePage = inputDocument.pages[pageIndex];
+        final template = sourcePage.createTemplate();
         final page = outputDocument.pages.add();
-        page.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
+        page.size = sourcePage.size;
+        page.graphics.drawPdfTemplate(
+          template,
+          const ui.Offset(0, 0),
+          sourcePage.size,
+        );
       }
 
       inputDocument.dispose();

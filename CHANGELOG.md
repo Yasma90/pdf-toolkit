@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **PDF Merge/Split/Extract now preserves page dimensions** - fixed issue where merged PDFs lost original page margins and sizes by explicitly setting `page.size` to match source page dimensions before drawing templates
 - **PDF Compression now works correctly** - files are actually reduced in size
   - **Windows**: Uses Ghostscript for professional-grade compression (30-90% reduction)
     - Low: 200 DPI, 85% JPEG quality (high-quality printing)
@@ -30,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Save button** in compression result screen (in addition to Share)
+- **Save button** in all result screens (Merge, Split, Extract, Rotate, Reorder, Compress, Convert, Protect, Unlock, Watermark, Page Numbers)
 - **WINDOWS_REQUIREMENTS.md** - documentation for Ghostscript installation
 
 ### Changed

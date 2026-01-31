@@ -56,6 +56,9 @@ class ErrorState extends CompressionState {
 class CompressScreen extends ConsumerWidget {
   const CompressScreen({super.key});
 
+  // Check if compression is available on this platform
+  bool get _isCompressionAvailable => Platform.isWindows;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedFile = ref.watch(selectedFileProvider);
@@ -76,19 +79,31 @@ class CompressScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // File selection
-              FileDropZone(
-                onTap: () => _selectFile(ref),
-                onFilesDropped: (paths) => _handleDroppedFiles(ref, paths),
-                selectedFileName: selectedFile?.fileName,
-                fileSize: selectedFile?.formattedSize,
-                onClear: selectedFile != null
-                    ? () => ref.read(selectedFileProvider.notifier).state = null
-                    : null,
-                isLoading: state is ProcessingState,
+              // Platform not supported message
+              if (!_isCompressionAvailable) ...[
+                _PlatformNotSupportedCard(),
+                const SizedBox(height: 24),
+              ],
+
+              // File selection (disabled on unsupported platforms)
+              IgnorePointer(
+                ignoring: !_isCompressionAvailable,
+                child: Opacity(
+                  opacity: _isCompressionAvailable ? 1.0 : 0.5,
+                  child: FileDropZone(
+                    onTap: () => _selectFile(ref),
+                    onFilesDropped: (paths) => _handleDroppedFiles(ref, paths),
+                    selectedFileName: selectedFile?.fileName,
+                    fileSize: selectedFile?.formattedSize,
+                    onClear: selectedFile != null
+                        ? () => ref.read(selectedFileProvider.notifier).state = null
+                        : null,
+                    isLoading: state is ProcessingState,
+                  ),
+                ),
               ),
 
-              if (selectedFile != null && state is! ProcessingState) ...[
+              if (selectedFile != null && state is! ProcessingState && _isCompressionAvailable) ...[
                 const SizedBox(height: 32),
 
                 // Compression level selection
@@ -437,6 +452,88 @@ class _OptionSwitch extends StatelessWidget {
             value: value,
             onChanged: onChanged,
             activeColor: AppColors.compressColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlatformNotSupportedCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange.shade700,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Not Available on This Platform',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade800,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'PDF compression requires Ghostscript which is only available on Windows.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.computer,
+                  color: Colors.orange.shade600,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Use the Windows version of this app for full PDF compression with up to 90% file size reduction.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.orange.shade800,
+                        ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

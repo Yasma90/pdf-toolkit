@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf_toolkit/shared/theme/app_theme.dart';
@@ -121,10 +122,11 @@ class HomeScreen extends ConsumerWidget {
                 delegate: SliverChildListDelegate([
                   ToolCard(
                     title: 'Compress',
-                    subtitle: 'Reduce file size',
+                    subtitle: Platform.isWindows ? 'Reduce file size' : 'Windows only',
                     icon: Icons.compress,
                     color: AppColors.compressColor,
                     onTap: () => _navigateTo(context, const CompressScreen()),
+                    badge: Platform.isWindows ? null : 'Windows',
                   ),
                   ToolCard(
                     title: 'Merge',

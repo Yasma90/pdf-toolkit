@@ -11,17 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **PDF Compression now works correctly** - files are actually reduced in size
+  - Disabled incremental updates to force full document rewrite
+  - Enabled cross-reference streams for more efficient PDF structure
+  - Properly applies compression level to content streams
 - Resolved PdfDocument import conflict between `pdf` and `syncfusion_flutter_pdf` packages
 - Fixed AnimatedBuilder widget parameter mismatch (changed `animation` to `listenable`)
 - Corrected RecentFilesNotifier method calls (changed `addFile` to `addEntry`)
 - Fixed PdfFile property access (changed `fileSize` to `sizeInBytes`)
 - Fixed FileDropZone and pickPdfFiles parameter names (changed `allowMultiple` to `multiple`)
 - Added missing OperationResult import in batch_screen.dart
+- **Drag & drop now works on Windows** - added `desktop_drop` package support
 
 ### Changed
 
 - Updated Android compileSdk from 34 to 35 (required by flutter_plugin_android_lifecycle)
 - Updated Android NDK version to 25.1.8937393 (required by multiple plugins)
+- Refactored PdfService compression methods for better maintainability
+- Updated compression level mapping to use Dart 3 switch expressions
 
 ## [1.0.0] - 2026-01-30
 

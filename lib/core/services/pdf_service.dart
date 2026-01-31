@@ -15,6 +15,12 @@ import 'package:pdf_toolkit/core/models/extraction_options.dart';
 /// Service for PDF manipulation operations
 class PdfService {
   /// Compress a PDF file with specified options
+  ///
+  /// The compression works by:
+  /// 1. Disabling incremental updates to force full document rewrite
+  /// 2. Using cross-reference streams for more efficient structure
+  /// 3. Applying Syncfusion's compression level to content streams
+  /// 4. Optionally removing metadata and flattening annotations
   Future<OperationResult<CompressionResult>> compressPdf({
     required String inputPath,
     required String outputPath,
@@ -34,52 +40,31 @@ class PdfService {
       final originalSize = await inputFile.length();
       final inputBytes = await inputFile.readAsBytes();
 
-      onProgress?.call(0.3, 'Analyzing document...');
+      onProgress?.call(0.2, 'Analyzing document...');
 
-      // Load PDF document
       final document = syncfusion.PdfDocument(inputBytes: inputBytes);
       final pageCount = document.pages.count;
 
-      onProgress?.call(0.4, 'Compressing images...');
+      onProgress?.call(0.3, 'Applying compression settings...');
 
-      // Apply compression based on options
-      if (options.compressImages) {
-        _compressImagesInDocument(document, options);
-      }
+      // Apply compression configuration
+      _configureDocumentCompression(document, options);
 
-      onProgress?.call(0.6, 'Optimizing structure...');
+      onProgress?.call(0.5, 'Processing document...');
 
-      if (options.removeMetadata) {
-        document.documentInformation.title = '';
-        document.documentInformation.author = '';
-        document.documentInformation.subject = '';
-        document.documentInformation.keywords = '';
-        document.documentInformation.creator = '';
-        document.documentInformation.producer = '';
-      }
-
-      if (options.removeAnnotations) {
-        for (int i = 0; i < pageCount; i++) {
-          final page = document.pages[i];
-          // Flatten annotations - this embeds them into page graphics
-          // effectively removing them as editable annotation objects
-          page.annotations.flattenAllAnnotations();
-        }
-      }
+      // Apply optional optimizations
+      _applyOptionalOptimizations(document, options, pageCount);
 
       onProgress?.call(0.8, 'Saving compressed PDF...');
 
-      // Save the compressed document
       final compressedBytes = await document.save();
       document.dispose();
 
-      final outputFile = File(outputPath);
-      await outputFile.writeAsBytes(compressedBytes);
+      await File(outputPath).writeAsBytes(compressedBytes);
 
       final compressedSize = compressedBytes.length;
 
       onProgress?.call(1.0, 'Complete!');
-
       stopwatch.stop();
 
       return OperationSuccess(
@@ -99,6 +84,56 @@ class PdfService {
         details: e.toString(),
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  /// Configure document settings for optimal compression
+  void _configureDocumentCompression(
+    syncfusion.PdfDocument document,
+    CompressionOptions options,
+  ) {
+    // CRITICAL: Disable incremental update to force full rewrite
+    // Without this, changes are appended and file size increases
+    document.fileStructure.incrementalUpdate = false;
+
+    // Use cross-reference stream for more efficient PDF structure
+    document.fileStructure.crossReferenceType =
+        syncfusion.PdfCrossReferenceType.crossReferenceStream;
+
+    // Set compression level for content streams
+    document.compressionLevel = _getCompressionLevel(options.level);
+  }
+
+  /// Apply optional optimizations based on user settings
+  void _applyOptionalOptimizations(
+    syncfusion.PdfDocument document,
+    CompressionOptions options,
+    int pageCount,
+  ) {
+    if (options.removeMetadata) {
+      _clearDocumentMetadata(document);
+    }
+
+    if (options.removeAnnotations) {
+      _flattenAnnotations(document, pageCount);
+    }
+  }
+
+  /// Clear all document metadata fields
+  void _clearDocumentMetadata(syncfusion.PdfDocument document) {
+    final info = document.documentInformation;
+    info.title = '';
+    info.author = '';
+    info.subject = '';
+    info.keywords = '';
+    info.creator = '';
+    info.producer = '';
+  }
+
+  /// Flatten annotations on all pages
+  void _flattenAnnotations(syncfusion.PdfDocument document, int pageCount) {
+    for (int i = 0; i < pageCount; i++) {
+      document.pages[i].annotations.flattenAllAnnotations();
     }
   }
 
@@ -643,11 +678,15 @@ class PdfService {
     }
   }
 
-  /// Apply image compression to document
-  void _compressImagesInDocument(syncfusion.PdfDocument document, CompressionOptions options) {
-    // Syncfusion PDF handles compression internally
-    // For more advanced compression, we'd iterate through images
-    // and re-encode them with lower quality
+  /// Map application compression level to Syncfusion compression level
+  syncfusion.PdfCompressionLevel _getCompressionLevel(CompressionLevel level) {
+    return switch (level) {
+      CompressionLevel.low => syncfusion.PdfCompressionLevel.normal,
+      CompressionLevel.medium => syncfusion.PdfCompressionLevel.aboveNormal,
+      CompressionLevel.high => syncfusion.PdfCompressionLevel.best,
+      CompressionLevel.extreme => syncfusion.PdfCompressionLevel.best,
+      CompressionLevel.custom => syncfusion.PdfCompressionLevel.normal,
+    };
   }
 }
 

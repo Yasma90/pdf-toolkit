@@ -5,24 +5,33 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
 import 'package:path/path.dart' as path;
-import 'package:image/image.dart' as img;
 import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/image_format.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
 import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/models/security_options.dart';
 import 'package:pdf_toolkit/core/models/extraction_options.dart';
+import 'package:pdf_toolkit/core/services/ghostscript_service.dart';
 
 /// Service for PDF manipulation operations
+///
+/// Compression strategy by platform:
+/// - **Windows**: Uses Ghostscript for professional-grade compression with
+///   real image quality reduction (can achieve 30-90% file size reduction)
+/// - **Android/Other**: Uses Syncfusion's built-in compression which optimizes
+///   document structure but has limited image compression capabilities
 class PdfService {
   /// Compress a PDF file with specified options
   ///
-  /// The compression works by:
-  /// 1. Disabling incremental updates to force full document rewrite
-  /// 2. Using cross-reference streams for more efficient structure
-  /// 3. Applying Syncfusion's compression level to content streams
-  /// 4. Compressing embedded images based on compression level
-  /// 5. Optionally removing metadata and flattening annotations
+  /// On Windows with Ghostscript available:
+  /// - Uses Ghostscript for real image compression
+  /// - Maps compression levels to Ghostscript presets (screen/ebook/printer)
+  /// - Can significantly reduce file size for image-heavy PDFs
+  ///
+  /// On Android or when Ghostscript unavailable:
+  /// - Uses Syncfusion's document structure optimization
+  /// - Disables incremental updates for full document rewrite
+  /// - Uses cross-reference streams for efficient structure
   Future<OperationResult<CompressionResult>> compressPdf({
     required String inputPath,
     required String outputPath,
@@ -32,7 +41,7 @@ class PdfService {
     final stopwatch = Stopwatch()..start();
 
     try {
-      onProgress?.call(0.05, 'Loading PDF...');
+      onProgress?.call(0.05, 'Checking compression engine...');
 
       final inputFile = File(inputPath);
       if (!await inputFile.exists()) {
@@ -40,54 +49,30 @@ class PdfService {
       }
 
       final originalSize = await inputFile.length();
-      final inputBytes = await inputFile.readAsBytes();
 
-      onProgress?.call(0.1, 'Analyzing document...');
-
-      final document = syncfusion.PdfDocument(inputBytes: inputBytes);
-      final pageCount = document.pages.count;
-
-      onProgress?.call(0.15, 'Applying compression settings...');
-
-      // Apply compression configuration
-      _configureDocumentCompression(document, options);
-
-      // Compress images if enabled
-      if (options.compressImages) {
-        await _compressDocumentImages(
-          document,
-          options,
-          pageCount,
-          onProgress,
-        );
+      // Try Ghostscript on Windows for better image compression
+      if (Platform.isWindows && options.compressImages) {
+        final gsAvailable = await GhostscriptService.isAvailable();
+        if (gsAvailable) {
+          return await _compressWithGhostscript(
+            inputPath: inputPath,
+            outputPath: outputPath,
+            options: options,
+            originalSize: originalSize,
+            stopwatch: stopwatch,
+            onProgress: onProgress,
+          );
+        }
       }
 
-      onProgress?.call(0.8, 'Applying optimizations...');
-
-      // Apply optional optimizations
-      _applyOptionalOptimizations(document, options, pageCount);
-
-      onProgress?.call(0.9, 'Saving compressed PDF...');
-
-      final compressedBytes = await document.save();
-      document.dispose();
-
-      await File(outputPath).writeAsBytes(compressedBytes);
-
-      final compressedSize = compressedBytes.length;
-
-      onProgress?.call(1.0, 'Complete!');
-      stopwatch.stop();
-
-      return OperationSuccess(
-        data: CompressionResult(
-          outputPath: outputPath,
-          originalSize: originalSize,
-          compressedSize: compressedSize,
-          processingTime: stopwatch.elapsed,
-        ),
-        message: 'PDF compressed successfully',
-        duration: stopwatch.elapsed,
+      // Fallback to Syncfusion compression
+      return await _compressWithSyncfusion(
+        inputPath: inputPath,
+        outputPath: outputPath,
+        options: options,
+        originalSize: originalSize,
+        stopwatch: stopwatch,
+        onProgress: onProgress,
       );
     } catch (e, stackTrace) {
       stopwatch.stop();
@@ -97,6 +82,151 @@ class PdfService {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  /// Compress PDF using Ghostscript (Windows only)
+  ///
+  /// Provides professional-grade compression with real image quality reduction
+  Future<OperationResult<CompressionResult>> _compressWithGhostscript({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+    required int originalSize,
+    required Stopwatch stopwatch,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    onProgress?.call(0.1, 'Using Ghostscript engine...');
+
+    // First, apply Syncfusion optimizations if needed (metadata, annotations)
+    String processedInput = inputPath;
+    if (options.removeMetadata || options.removeAnnotations) {
+      onProgress?.call(0.2, 'Applying document optimizations...');
+      final tempPath = outputPath.replaceAll('.pdf', '_temp.pdf');
+      await _applySyncfusionOptimizations(
+        inputPath: inputPath,
+        outputPath: tempPath,
+        options: options,
+      );
+      processedInput = tempPath;
+    }
+
+    onProgress?.call(0.4, 'Compressing images with Ghostscript...');
+
+    final result = await GhostscriptService.compressPdf(
+      inputPath: processedInput,
+      outputPath: outputPath,
+      level: options.level,
+      onStatus: (status) {
+        onProgress?.call(0.6, status);
+      },
+    );
+
+    // Clean up temp file if created
+    if (processedInput != inputPath) {
+      try {
+        await File(processedInput).delete();
+      } catch (_) {}
+    }
+
+    if (result.success) {
+      onProgress?.call(1.0, 'Complete!');
+      stopwatch.stop();
+
+      return OperationSuccess(
+        data: CompressionResult(
+          outputPath: outputPath,
+          originalSize: originalSize,
+          compressedSize: result.outputSize!,
+          processingTime: stopwatch.elapsed,
+        ),
+        message: 'PDF compressed with Ghostscript',
+        duration: stopwatch.elapsed,
+      );
+    } else {
+      // If Ghostscript fails, fallback to Syncfusion
+      onProgress?.call(0.5, 'Ghostscript failed, using fallback...');
+      return await _compressWithSyncfusion(
+        inputPath: inputPath,
+        outputPath: outputPath,
+        options: options,
+        originalSize: originalSize,
+        stopwatch: stopwatch,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// Compress PDF using Syncfusion (cross-platform fallback)
+  Future<OperationResult<CompressionResult>> _compressWithSyncfusion({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+    required int originalSize,
+    required Stopwatch stopwatch,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    onProgress?.call(0.1, 'Loading PDF...');
+
+    final inputBytes = await File(inputPath).readAsBytes();
+
+    onProgress?.call(0.3, 'Analyzing document...');
+
+    final document = syncfusion.PdfDocument(inputBytes: inputBytes);
+    final pageCount = document.pages.count;
+
+    onProgress?.call(0.4, 'Applying compression settings...');
+
+    // Apply compression configuration
+    _configureDocumentCompression(document, options);
+
+    onProgress?.call(0.6, 'Applying optimizations...');
+
+    // Apply optional optimizations
+    _applyOptionalOptimizations(document, options, pageCount);
+
+    onProgress?.call(0.8, 'Saving compressed PDF...');
+
+    final compressedBytes = await document.save();
+    document.dispose();
+
+    await File(outputPath).writeAsBytes(compressedBytes);
+
+    final compressedSize = compressedBytes.length;
+
+    onProgress?.call(1.0, 'Complete!');
+    stopwatch.stop();
+
+    return OperationSuccess(
+      data: CompressionResult(
+        outputPath: outputPath,
+        originalSize: originalSize,
+        compressedSize: compressedSize,
+        processingTime: stopwatch.elapsed,
+      ),
+      message: 'PDF compressed successfully',
+      duration: stopwatch.elapsed,
+    );
+  }
+
+  /// Apply only Syncfusion optimizations (metadata, annotations) without compression
+  Future<void> _applySyncfusionOptimizations({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+  }) async {
+    final inputBytes = await File(inputPath).readAsBytes();
+    final document = syncfusion.PdfDocument(inputBytes: inputBytes);
+    final pageCount = document.pages.count;
+
+    // Don't apply compression settings - just optimizations
+    document.fileStructure.incrementalUpdate = false;
+
+    _applyOptionalOptimizations(document, options, pageCount);
+
+    final bytes = await document.save();
+    document.dispose();
+
+    await File(outputPath).writeAsBytes(bytes);
   }
 
   /// Configure document settings for optimal compression
@@ -113,162 +243,8 @@ class PdfService {
         syncfusion.PdfCrossReferenceType.crossReferenceStream;
 
     // Set compression level for content streams
+    // This affects how content streams (including image data) are compressed
     document.compressionLevel = _getCompressionLevel(options.level);
-  }
-
-  /// Compress images in the document based on compression options
-  ///
-  /// Extracts images from each page, recompresses them with the target
-  /// quality, and replaces them in the document.
-  Future<void> _compressDocumentImages(
-    syncfusion.PdfDocument document,
-    CompressionOptions options,
-    int pageCount,
-    Function(double progress, String? step)? onProgress,
-  ) async {
-    final imageQuality = options.effectiveImageQuality;
-    int totalImages = 0;
-    int processedImages = 0;
-
-    // First pass: count total images
-    for (int i = 0; i < pageCount; i++) {
-      try {
-        final images = document.pages[i].extractImages();
-        totalImages += images.length;
-      } catch (_) {
-        // Page might not have extractable images
-      }
-    }
-
-    if (totalImages == 0) {
-      onProgress?.call(0.5, 'No images to compress...');
-      return;
-    }
-
-    // Second pass: compress images
-    for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-      try {
-        final page = document.pages[pageIndex];
-        final images = page.extractImages();
-
-        for (int imgIndex = 0; imgIndex < images.length; imgIndex++) {
-          processedImages++;
-          final progress = 0.2 + (0.6 * (processedImages / totalImages));
-          onProgress?.call(
-            progress,
-            'Compressing image $processedImages of $totalImages...',
-          );
-
-          try {
-            final imageInfo = images[imgIndex];
-            final compressedImageData = _compressImage(
-              imageInfo.imageData,
-              imageQuality,
-              options.level,
-            );
-
-            if (compressedImageData != null) {
-              // Create a new bitmap from compressed data and replace
-              final pdfBitmap = syncfusion.PdfBitmap(compressedImageData);
-
-              // Draw the compressed image over the original position
-              // Note: This replaces the image at its bounds
-              page.graphics.drawImage(
-                pdfBitmap,
-                ui.Rect.fromLTWH(
-                  imageInfo.bounds.left,
-                  imageInfo.bounds.top,
-                  imageInfo.bounds.width,
-                  imageInfo.bounds.height,
-                ),
-              );
-            }
-          } catch (_) {
-            // Skip images that fail to compress
-          }
-        }
-      } catch (_) {
-        // Skip pages that fail to process
-      }
-    }
-  }
-
-  /// Compress a single image with the specified quality
-  ///
-  /// Returns compressed JPEG bytes, or null if compression fails
-  Uint8List? _compressImage(
-    Uint8List imageData,
-    int quality,
-    CompressionLevel level,
-  ) {
-    try {
-      // Decode the image
-      final decoded = img.decodeImage(imageData);
-      if (decoded == null) return null;
-
-      // Calculate target dimensions for downsampling
-      final targetSize = _calculateTargetSize(decoded, level);
-
-      // Resize if needed
-      final resized = (targetSize.width != decoded.width ||
-              targetSize.height != decoded.height)
-          ? img.copyResize(
-              decoded,
-              width: targetSize.width,
-              height: targetSize.height,
-              interpolation: img.Interpolation.linear,
-            )
-          : decoded;
-
-      // Encode as JPEG with target quality
-      final compressed = img.encodeJpg(resized, quality: quality);
-
-      // Only return if we actually achieved compression
-      if (compressed.length < imageData.length) {
-        return Uint8List.fromList(compressed);
-      }
-
-      return null; // Original was already smaller
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Calculate target image dimensions based on compression level
-  ({int width, int height}) _calculateTargetSize(
-    img.Image image,
-    CompressionLevel level,
-  ) {
-    // Maximum dimension based on compression level
-    final maxDimension = switch (level) {
-      CompressionLevel.low => 4096, // Keep high res
-      CompressionLevel.medium => 2048, // Good for most uses
-      CompressionLevel.high => 1600, // Web quality
-      CompressionLevel.extreme => 1200, // Preview quality
-      CompressionLevel.custom => 2048, // Default to medium
-    };
-
-    final width = image.width;
-    final height = image.height;
-
-    // No resize needed if image is within limits
-    if (width <= maxDimension && height <= maxDimension) {
-      return (width: width, height: height);
-    }
-
-    // Calculate scaled dimensions maintaining aspect ratio
-    final ratio = width / height;
-    if (width > height) {
-      return (
-        width: maxDimension,
-        height: (maxDimension / ratio).round(),
-      );
-    } else {
-      return (
-        width: (maxDimension * ratio).round(),
-        height: maxDimension,
-      );
-    }
   }
 
   /// Apply optional optimizations based on user settings

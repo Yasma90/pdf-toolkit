@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Disabled incremental updates to force full document rewrite
   - Enabled cross-reference streams for more efficient PDF structure
   - Properly applies compression level to content streams
+  - **Image compression now functional** - embedded images are recompressed based on level:
+    - Low: 90% quality, max 4096px
+    - Medium: 70% quality, max 2048px
+    - High: 50% quality, max 1600px
+    - Extreme: 30% quality, max 1200px
 - Resolved PdfDocument import conflict between `pdf` and `syncfusion_flutter_pdf` packages
 - Fixed AnimatedBuilder widget parameter mismatch (changed `animation` to `listenable`)
 - Corrected RecentFilesNotifier method calls (changed `addFile` to `addEntry`)

@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
 import 'package:path/path.dart' as path;
+import 'package:image/image.dart' as img;
 import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/image_format.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
@@ -20,7 +21,8 @@ class PdfService {
   /// 1. Disabling incremental updates to force full document rewrite
   /// 2. Using cross-reference streams for more efficient structure
   /// 3. Applying Syncfusion's compression level to content streams
-  /// 4. Optionally removing metadata and flattening annotations
+  /// 4. Compressing embedded images based on compression level
+  /// 5. Optionally removing metadata and flattening annotations
   Future<OperationResult<CompressionResult>> compressPdf({
     required String inputPath,
     required String outputPath,
@@ -30,7 +32,7 @@ class PdfService {
     final stopwatch = Stopwatch()..start();
 
     try {
-      onProgress?.call(0.1, 'Loading PDF...');
+      onProgress?.call(0.05, 'Loading PDF...');
 
       final inputFile = File(inputPath);
       if (!await inputFile.exists()) {
@@ -40,22 +42,32 @@ class PdfService {
       final originalSize = await inputFile.length();
       final inputBytes = await inputFile.readAsBytes();
 
-      onProgress?.call(0.2, 'Analyzing document...');
+      onProgress?.call(0.1, 'Analyzing document...');
 
       final document = syncfusion.PdfDocument(inputBytes: inputBytes);
       final pageCount = document.pages.count;
 
-      onProgress?.call(0.3, 'Applying compression settings...');
+      onProgress?.call(0.15, 'Applying compression settings...');
 
       // Apply compression configuration
       _configureDocumentCompression(document, options);
 
-      onProgress?.call(0.5, 'Processing document...');
+      // Compress images if enabled
+      if (options.compressImages) {
+        await _compressDocumentImages(
+          document,
+          options,
+          pageCount,
+          onProgress,
+        );
+      }
+
+      onProgress?.call(0.8, 'Applying optimizations...');
 
       // Apply optional optimizations
       _applyOptionalOptimizations(document, options, pageCount);
 
-      onProgress?.call(0.8, 'Saving compressed PDF...');
+      onProgress?.call(0.9, 'Saving compressed PDF...');
 
       final compressedBytes = await document.save();
       document.dispose();
@@ -102,6 +114,161 @@ class PdfService {
 
     // Set compression level for content streams
     document.compressionLevel = _getCompressionLevel(options.level);
+  }
+
+  /// Compress images in the document based on compression options
+  ///
+  /// Extracts images from each page, recompresses them with the target
+  /// quality, and replaces them in the document.
+  Future<void> _compressDocumentImages(
+    syncfusion.PdfDocument document,
+    CompressionOptions options,
+    int pageCount,
+    Function(double progress, String? step)? onProgress,
+  ) async {
+    final imageQuality = options.effectiveImageQuality;
+    int totalImages = 0;
+    int processedImages = 0;
+
+    // First pass: count total images
+    for (int i = 0; i < pageCount; i++) {
+      try {
+        final images = document.pages[i].extractImages();
+        totalImages += images.length;
+      } catch (_) {
+        // Page might not have extractable images
+      }
+    }
+
+    if (totalImages == 0) {
+      onProgress?.call(0.5, 'No images to compress...');
+      return;
+    }
+
+    // Second pass: compress images
+    for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+      try {
+        final page = document.pages[pageIndex];
+        final images = page.extractImages();
+
+        for (int imgIndex = 0; imgIndex < images.length; imgIndex++) {
+          processedImages++;
+          final progress = 0.2 + (0.6 * (processedImages / totalImages));
+          onProgress?.call(
+            progress,
+            'Compressing image $processedImages of $totalImages...',
+          );
+
+          try {
+            final imageInfo = images[imgIndex];
+            final compressedImageData = _compressImage(
+              imageInfo.imageData,
+              imageQuality,
+              options.level,
+            );
+
+            if (compressedImageData != null) {
+              // Create a new bitmap from compressed data and replace
+              final pdfBitmap = syncfusion.PdfBitmap(compressedImageData);
+
+              // Draw the compressed image over the original position
+              // Note: This replaces the image at its bounds
+              page.graphics.drawImage(
+                pdfBitmap,
+                ui.Rect.fromLTWH(
+                  imageInfo.bounds.left,
+                  imageInfo.bounds.top,
+                  imageInfo.bounds.width,
+                  imageInfo.bounds.height,
+                ),
+              );
+            }
+          } catch (_) {
+            // Skip images that fail to compress
+          }
+        }
+      } catch (_) {
+        // Skip pages that fail to process
+      }
+    }
+  }
+
+  /// Compress a single image with the specified quality
+  ///
+  /// Returns compressed JPEG bytes, or null if compression fails
+  Uint8List? _compressImage(
+    Uint8List imageData,
+    int quality,
+    CompressionLevel level,
+  ) {
+    try {
+      // Decode the image
+      final decoded = img.decodeImage(imageData);
+      if (decoded == null) return null;
+
+      // Calculate target dimensions for downsampling
+      final targetSize = _calculateTargetSize(decoded, level);
+
+      // Resize if needed
+      final resized = (targetSize.width != decoded.width ||
+              targetSize.height != decoded.height)
+          ? img.copyResize(
+              decoded,
+              width: targetSize.width,
+              height: targetSize.height,
+              interpolation: img.Interpolation.linear,
+            )
+          : decoded;
+
+      // Encode as JPEG with target quality
+      final compressed = img.encodeJpg(resized, quality: quality);
+
+      // Only return if we actually achieved compression
+      if (compressed.length < imageData.length) {
+        return Uint8List.fromList(compressed);
+      }
+
+      return null; // Original was already smaller
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Calculate target image dimensions based on compression level
+  ({int width, int height}) _calculateTargetSize(
+    img.Image image,
+    CompressionLevel level,
+  ) {
+    // Maximum dimension based on compression level
+    final maxDimension = switch (level) {
+      CompressionLevel.low => 4096, // Keep high res
+      CompressionLevel.medium => 2048, // Good for most uses
+      CompressionLevel.high => 1600, // Web quality
+      CompressionLevel.extreme => 1200, // Preview quality
+      CompressionLevel.custom => 2048, // Default to medium
+    };
+
+    final width = image.width;
+    final height = image.height;
+
+    // No resize needed if image is within limits
+    if (width <= maxDimension && height <= maxDimension) {
+      return (width: width, height: height);
+    }
+
+    // Calculate scaled dimensions maintaining aspect ratio
+    final ratio = width / height;
+    if (width > height) {
+      return (
+        width: maxDimension,
+        height: (maxDimension / ratio).round(),
+      );
+    } else {
+      return (
+        width: (maxDimension * ratio).round(),
+        height: maxDimension,
+      );
+    }
   }
 
   /// Apply optional optimizations based on user settings

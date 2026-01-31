@@ -61,10 +61,9 @@ class PdfService {
       if (options.removeAnnotations) {
         for (int i = 0; i < pageCount; i++) {
           final page = document.pages[i];
-          // Remove annotations in reverse order to avoid index shifting
-          for (int j = page.annotations.count - 1; j >= 0; j--) {
-            page.annotations.removeAt(j);
-          }
+          // Flatten annotations - this embeds them into page graphics
+          // effectively removing them as editable annotation objects
+          page.annotations.flattenAllAnnotations();
         }
       }
 

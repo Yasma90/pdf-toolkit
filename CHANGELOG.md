@@ -11,16 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **PDF Merge/Split/Extract now preserves page dimensions** - fixed issue where merged PDFs lost original page margins and sizes by explicitly setting `page.size` to match source page dimensions before drawing templates
+- **PDF Merge/Split/Extract now preserves page dimensions** - fixed issue where merged PDFs lost original page margins and sizes by using sections with `pageSettings.size` to match source page dimensions
 - **PDF Compression now works correctly** - files are actually reduced in size
   - **Windows**: Uses Ghostscript for professional-grade compression (30-90% reduction)
     - Low: 200 DPI, 85% JPEG quality (high-quality printing)
     - Medium: 150 DPI, 70% JPEG quality (general use)
     - High: 100 DPI, 50% JPEG quality (web quality)
     - Extreme: 72 DPI, 30% JPEG quality (maximum compression)
-  - **Android**: Uses native iText-based compression via pdf_compressor package
-    - Low, Medium, High quality levels for real image compression
-    - Falls back to Syncfusion structure optimization if needed
+  - **Android/iOS**: Uses Syncfusion structure optimization (limited image compression)
 - Resolved PdfDocument import conflict between `pdf` and `syncfusion_flutter_pdf` packages
 - Fixed AnimatedBuilder widget parameter mismatch (changed `animation` to `listenable`)
 - Corrected RecentFilesNotifier method calls (changed `addFile` to `addEntry`)

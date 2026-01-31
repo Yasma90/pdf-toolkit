@@ -12,15 +12,14 @@ import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/models/security_options.dart';
 import 'package:pdf_toolkit/core/models/extraction_options.dart';
 import 'package:pdf_toolkit/core/services/ghostscript_service.dart';
-import 'package:pdf_toolkit/core/services/android_compressor_service.dart';
 
 /// Service for PDF manipulation operations
 ///
 /// Compression strategy by platform:
 /// - **Windows**: Uses Ghostscript for professional-grade compression with
 ///   real image quality reduction (can achieve 30-90% file size reduction)
-/// - **Android/Other**: Uses Syncfusion's built-in compression which optimizes
-///   document structure but has limited image compression capabilities
+/// - **Android/iOS/Other**: Uses Syncfusion's built-in compression which optimizes
+///   document structure (limited image compression - structure optimization only)
 class PdfService {
   /// Compress a PDF file with specified options
   ///
@@ -56,21 +55,6 @@ class PdfService {
         final gsAvailable = await GhostscriptService.isAvailable();
         if (gsAvailable) {
           return await _compressWithGhostscript(
-            inputPath: inputPath,
-            outputPath: outputPath,
-            options: options,
-            originalSize: originalSize,
-            stopwatch: stopwatch,
-            onProgress: onProgress,
-          );
-        }
-      }
-
-      // Try Android native compressor for real image compression
-      if (Platform.isAndroid && options.compressImages) {
-        final androidAvailable = await AndroidCompressorService.isAvailable();
-        if (androidAvailable) {
-          return await _compressWithAndroid(
             inputPath: inputPath,
             outputPath: outputPath,
             options: options,
@@ -173,77 +157,6 @@ class PdfService {
   }
 
   /// Compress PDF using native Android compressor (Android only)
-  ///
-  /// Uses iText-based compression for real image quality reduction
-  Future<OperationResult<CompressionResult>> _compressWithAndroid({
-    required String inputPath,
-    required String outputPath,
-    required CompressionOptions options,
-    required int originalSize,
-    required Stopwatch stopwatch,
-    Function(double progress, String? step)? onProgress,
-  }) async {
-    onProgress?.call(0.1, 'Using Android native compressor...');
-
-    // First, apply Syncfusion optimizations if needed (metadata, annotations)
-    String processedInput = inputPath;
-    if (options.removeMetadata || options.removeAnnotations) {
-      onProgress?.call(0.2, 'Applying document optimizations...');
-      final tempPath = outputPath.replaceAll('.pdf', '_temp.pdf');
-      await _applySyncfusionOptimizations(
-        inputPath: inputPath,
-        outputPath: tempPath,
-        options: options,
-      );
-      processedInput = tempPath;
-    }
-
-    onProgress?.call(0.4, 'Compressing PDF...');
-
-    final result = await AndroidCompressorService.compressPdf(
-      inputPath: processedInput,
-      outputPath: outputPath,
-      level: options.level,
-      onStatus: (status) {
-        onProgress?.call(0.6, status);
-      },
-    );
-
-    // Clean up temp file if created
-    if (processedInput != inputPath) {
-      try {
-        await File(processedInput).delete();
-      } catch (_) {}
-    }
-
-    if (result.success) {
-      onProgress?.call(1.0, 'Complete!');
-      stopwatch.stop();
-
-      return OperationSuccess(
-        data: CompressionResult(
-          outputPath: outputPath,
-          originalSize: originalSize,
-          compressedSize: result.outputSize!,
-          processingTime: stopwatch.elapsed,
-        ),
-        message: 'PDF compressed with Android native compressor',
-        duration: stopwatch.elapsed,
-      );
-    } else {
-      // If Android compressor fails, fallback to Syncfusion
-      onProgress?.call(0.5, 'Native compressor failed, using fallback...');
-      return await _compressWithSyncfusion(
-        inputPath: inputPath,
-        outputPath: outputPath,
-        options: options,
-        originalSize: originalSize,
-        stopwatch: stopwatch,
-        onProgress: onProgress,
-      );
-    }
-  }
-
   /// Compress PDF using Syncfusion (cross-platform fallback)
   Future<OperationResult<CompressionResult>> _compressWithSyncfusion({
     required String inputPath,
@@ -412,17 +325,20 @@ class PdfService {
         for (int j = 0; j < inputDocument.pages.count; j++) {
           final sourcePage = inputDocument.pages[j];
           final template = sourcePage.createTemplate();
+          final sourceSize = sourcePage.size;
 
-          // Add page with the SAME size as the source page
-          // This preserves the original page dimensions and margins
-          final page = outputDocument.pages.add();
-          page.size = sourcePage.size;
+          // Create a section with the same page size as source
+          // This preserves the original page dimensions
+          final section = outputDocument.sections!.add();
+          section.pageSettings.size = sourceSize;
+          section.pageSettings.margins.all = 0;
 
-          // Draw at (0,0) with the original page size
+          // Add page to section and draw template
+          final page = section.pages.add();
           page.graphics.drawPdfTemplate(
             template,
             const ui.Offset(0, 0),
-            sourcePage.size,
+            sourceSize,
           );
           totalPages++;
         }
@@ -502,15 +418,18 @@ class PdfService {
 
             final sourcePage = inputDocument.pages[i];
             final template = sourcePage.createTemplate();
+            final sourceSize = sourcePage.size;
 
+            // Create document with same page size as source
             final outputDoc = syncfusion.PdfDocument();
-            // Add page with the SAME size as the source page
+            outputDoc.pageSettings.size = sourceSize;
+            outputDoc.pageSettings.margins.all = 0;
+
             final page = outputDoc.pages.add();
-            page.size = sourcePage.size;
             page.graphics.drawPdfTemplate(
               template,
               const ui.Offset(0, 0),
-              sourcePage.size,
+              sourceSize,
             );
 
             final outputPath = path.join(
@@ -537,16 +456,21 @@ class PdfService {
             final outputDoc = syncfusion.PdfDocument();
             final endPage = (i + perFile).clamp(0, totalPages);
 
-            // Add pages preserving original size
+            // Add pages preserving original size using sections
             for (int j = i; j < endPage; j++) {
               final sourcePage = inputDocument.pages[j];
               final template = sourcePage.createTemplate();
-              final page = outputDoc.pages.add();
-              page.size = sourcePage.size;
+              final sourceSize = sourcePage.size;
+
+              final section = outputDoc.sections!.add();
+              section.pageSettings.size = sourceSize;
+              section.pageSettings.margins.all = 0;
+
+              final page = section.pages.add();
               page.graphics.drawPdfTemplate(
                 template,
                 const ui.Offset(0, 0),
-                sourcePage.size,
+                sourceSize,
               );
             }
 
@@ -878,15 +802,20 @@ class PdfService {
         final progress = 0.3 + (0.6 * (i / pagesToExtract.length));
         onProgress?.call(progress, 'Extracting page ${pageIndex + 1}...');
 
-        // Copy page preserving original size
+        // Copy page preserving original size using sections
         final sourcePage = inputDocument.pages[pageIndex];
         final template = sourcePage.createTemplate();
-        final page = outputDocument.pages.add();
-        page.size = sourcePage.size;
+        final sourceSize = sourcePage.size;
+
+        final section = outputDocument.sections!.add();
+        section.pageSettings.size = sourceSize;
+        section.pageSettings.margins.all = 0;
+
+        final page = section.pages.add();
         page.graphics.drawPdfTemplate(
           template,
           const ui.Offset(0, 0),
-          sourcePage.size,
+          sourceSize,
         );
       }
 

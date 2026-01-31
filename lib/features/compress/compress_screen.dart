@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf_toolkit/core/models/compression_level.dart';
@@ -78,6 +79,7 @@ class CompressScreen extends ConsumerWidget {
               // File selection
               FileDropZone(
                 onTap: () => _selectFile(ref),
+                onFilesDropped: (paths) => _handleDroppedFiles(ref, paths),
                 selectedFileName: selectedFile?.fileName,
                 fileSize: selectedFile?.formattedSize,
                 onClear: selectedFile != null
@@ -191,6 +193,17 @@ class CompressScreen extends ConsumerWidget {
     final files = await fileService.pickPdfFiles();
     if (files.isNotEmpty) {
       ref.read(selectedFileProvider.notifier).state = files.first;
+      ref.read(compressionStateProvider.notifier).state =
+          const CompressionState.idle();
+    }
+  }
+
+  Future<void> _handleDroppedFiles(WidgetRef ref, List<String> paths) async {
+    if (paths.isEmpty) return;
+    final file = File(paths.first);
+    if (await file.exists()) {
+      final pdfFile = await PdfFile.fromFile(file);
+      ref.read(selectedFileProvider.notifier).state = pdfFile;
       ref.read(compressionStateProvider.notifier).state =
           const CompressionState.idle();
     }

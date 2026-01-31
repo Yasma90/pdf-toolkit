@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
@@ -155,6 +156,9 @@ class SplitScreen extends ConsumerWidget {
                       value: _formatSize(state.result.totalSize),
                     ),
                   ],
+                  onTertiaryAction: () =>
+                      _saveResults(context, ref, state.result.outputPaths),
+                  tertiaryActionText: 'Save All',
                   onPrimaryAction: () =>
                       _shareResults(ref, state.result.outputPaths),
                   primaryActionText: 'Share All',
@@ -224,6 +228,30 @@ class SplitScreen extends ConsumerWidget {
   Future<void> _shareResults(WidgetRef ref, List<String> outputPaths) async {
     final fileService = ref.read(splitFileServiceProvider);
     await fileService.shareFiles(outputPaths);
+  }
+
+  Future<void> _saveResults(BuildContext context, WidgetRef ref, List<String> outputPaths) async {
+    final fileService = ref.read(splitFileServiceProvider);
+    final savedDir = await fileService.pickOutputDirectory();
+
+    if (savedDir != null) {
+      int savedCount = 0;
+      for (final path in outputPaths) {
+        final fileName = path.split(RegExp(r'[/\\]')).last;
+        final destPath = '$savedDir${Platform.pathSeparator}$fileName';
+        final result = await fileService.copyFile(path, destPath);
+        if (result != null) savedCount++;
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved $savedCount files to: $savedDir'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    }
   }
 
   void _reset(WidgetRef ref) {

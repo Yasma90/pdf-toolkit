@@ -200,6 +200,8 @@ class ReorderScreen extends ConsumerWidget {
                         success: true,
                         title: 'PDF Updated!',
                         subtitle: 'Pages have been reordered/deleted',
+                        onTertiaryAction: () => _saveResult(context, state.outputPath),
+                        tertiaryActionText: 'Save',
                         onPrimaryAction: () => _shareResult(ref, state.outputPath),
                         primaryActionText: 'Share',
                         onSecondaryAction: () => _clearFile(ref),
@@ -355,6 +357,20 @@ class ReorderScreen extends ConsumerWidget {
   Future<void> _shareResult(WidgetRef ref, String outputPath) async {
     final fileService = FileService();
     await fileService.shareFile(outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, String outputPath) async {
+    final fileService = FileService();
+    final savedPath = await fileService.saveFileAs(outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 }
 

@@ -190,6 +190,8 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
                   success: true,
                   title: 'PDF Unlocked!',
                   subtitle: 'Password protection has been removed',
+                  onTertiaryAction: () => _saveResult(context, state.outputPath),
+                  tertiaryActionText: 'Save',
                   onPrimaryAction: () => _shareResult(ref, state.outputPath),
                   primaryActionText: 'Share',
                   onSecondaryAction: () => _reset(ref),
@@ -269,6 +271,20 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
   Future<void> _shareResult(WidgetRef ref, String outputPath) async {
     final fileService = FileService();
     await fileService.shareFile(outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, String outputPath) async {
+    final fileService = FileService();
+    final savedPath = await fileService.saveFileAs(outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _reset(WidgetRef ref) {

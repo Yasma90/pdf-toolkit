@@ -215,6 +215,8 @@ class MergeScreen extends ConsumerWidget {
               value: _formatSize(state.result.outputSize),
             ),
           ],
+          onTertiaryAction: () => _saveResult(context, ref, state.result.outputPath),
+          tertiaryActionText: 'Save',
           onPrimaryAction: () => _shareResult(ref, state.result.outputPath),
           primaryActionText: 'Share',
           onSecondaryAction: () => _reset(ref),
@@ -333,6 +335,20 @@ class MergeScreen extends ConsumerWidget {
   Future<void> _shareResult(WidgetRef ref, String outputPath) async {
     final fileService = ref.read(mergeFileServiceProvider);
     await fileService.shareFile(outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, WidgetRef ref, String outputPath) async {
+    final fileService = ref.read(mergeFileServiceProvider);
+    final savedPath = await fileService.saveFileAs(outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _clearAll(WidgetRef ref) {

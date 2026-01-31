@@ -186,6 +186,9 @@ class ConvertScreen extends ConsumerWidget {
                       value: state.result.formattedSize,
                     ),
                   ],
+                  onTertiaryAction: () =>
+                      _saveResults(context, ref, state.result.outputPaths),
+                  tertiaryActionText: 'Save All',
                   onPrimaryAction: () =>
                       _shareResults(ref, state.result.outputPaths),
                   primaryActionText: 'Share All',
@@ -297,6 +300,30 @@ class ConvertScreen extends ConsumerWidget {
   Future<void> _shareResults(WidgetRef ref, List<String> outputPaths) async {
     final fileService = ref.read(convertFileServiceProvider);
     await fileService.shareFiles(outputPaths);
+  }
+
+  Future<void> _saveResults(BuildContext context, WidgetRef ref, List<String> outputPaths) async {
+    final fileService = ref.read(convertFileServiceProvider);
+    final savedDir = await fileService.pickOutputDirectory();
+
+    if (savedDir != null) {
+      int savedCount = 0;
+      for (final path in outputPaths) {
+        final fileName = p.basename(path);
+        final destPath = '$savedDir${Platform.pathSeparator}$fileName';
+        final result = await fileService.copyFile(path, destPath);
+        if (result != null) savedCount++;
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved $savedCount images to: $savedDir'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    }
   }
 
   void _reset(WidgetRef ref) {

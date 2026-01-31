@@ -98,11 +98,13 @@ class GhostscriptService {
 
     onStatus?.call('Starting Ghostscript compression...');
 
-    // Map compression level to Ghostscript preset
+    // Map compression level to Ghostscript preset and settings
     final pdfSettings = _getPdfSettings(level);
     final imageResolution = _getImageResolution(level);
+    final jpegQuality = _getJpegQuality(level);
 
-    // Build Ghostscript command
+    // Build Ghostscript command with aggressive compression settings
+    // Based on best practices from ghostscript.com/blog/optimizing-pdfs.html
     final args = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
@@ -110,13 +112,36 @@ class GhostscriptService {
       '-dNOPAUSE',
       '-dQUIET',
       '-dBATCH',
-      // Image compression settings
+      '-dSAFER',
+      // Preserve hyperlinks
+      '-dPrinted=false',
+      // Font optimization
+      '-dEmbedAllFonts=true',
+      '-dSubsetFonts=true',
+      // Color image compression (JPEG)
+      '-dAutoFilterColorImages=false',
+      '-dColorImageFilter=/DCTEncode',
       '-dColorImageDownsampleType=/Bicubic',
       '-dColorImageResolution=$imageResolution',
+      '-dColorImageDownsampleThreshold=1.0',
+      // Gray image compression (JPEG)
+      '-dAutoFilterGrayImages=false',
+      '-dGrayImageFilter=/DCTEncode',
       '-dGrayImageDownsampleType=/Bicubic',
       '-dGrayImageResolution=$imageResolution',
+      '-dGrayImageDownsampleThreshold=1.0',
+      // Mono image compression
       '-dMonoImageDownsampleType=/Bicubic',
       '-dMonoImageResolution=${imageResolution ~/ 2}',
+      '-dMonoImageDownsampleThreshold=1.0',
+      // JPEG quality (0.0 to 1.0)
+      '-dJPEGQ=$jpegQuality',
+      // Additional optimizations
+      '-dDetectDuplicateImages=true',
+      '-dCompressFonts=true',
+      '-dOptimize=true',
+      // Don't preserve info that increases size
+      '-dFastWebView=false',
       // Output file
       '-sOutputFile=$outputPath',
       // Input file
@@ -151,10 +176,10 @@ class GhostscriptService {
   /// Get Ghostscript PDF settings preset based on compression level
   static String _getPdfSettings(CompressionLevel level) {
     return switch (level) {
-      CompressionLevel.low => '/printer', // 300 dpi, high quality
-      CompressionLevel.medium => '/ebook', // 150 dpi, good quality
-      CompressionLevel.high => '/ebook', // 150 dpi with lower resolution
-      CompressionLevel.extreme => '/screen', // 72 dpi, lowest quality
+      CompressionLevel.low => '/ebook', // Good quality, reasonable size
+      CompressionLevel.medium => '/ebook', // Balanced
+      CompressionLevel.high => '/screen', // Aggressive compression
+      CompressionLevel.extreme => '/screen', // Maximum compression
       CompressionLevel.custom => '/ebook',
     };
   }
@@ -162,11 +187,22 @@ class GhostscriptService {
   /// Get image resolution based on compression level
   static int _getImageResolution(CompressionLevel level) {
     return switch (level) {
-      CompressionLevel.low => 300,
-      CompressionLevel.medium => 150,
-      CompressionLevel.high => 120,
-      CompressionLevel.extreme => 72,
+      CompressionLevel.low => 200, // Good for printing
+      CompressionLevel.medium => 150, // Good for screens
+      CompressionLevel.high => 100, // Web quality
+      CompressionLevel.extreme => 72, // Preview quality
       CompressionLevel.custom => 150,
+    };
+  }
+
+  /// Get JPEG quality (0-100) based on compression level
+  static int _getJpegQuality(CompressionLevel level) {
+    return switch (level) {
+      CompressionLevel.low => 85, // High quality JPEG
+      CompressionLevel.medium => 70, // Good quality
+      CompressionLevel.high => 50, // Moderate quality
+      CompressionLevel.extreme => 30, // Low quality, max compression
+      CompressionLevel.custom => 70,
     };
   }
 }

@@ -12,6 +12,7 @@ import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/models/security_options.dart';
 import 'package:pdf_toolkit/core/models/extraction_options.dart';
 import 'package:pdf_toolkit/core/services/ghostscript_service.dart';
+import 'package:pdf_toolkit/core/services/android_compressor_service.dart';
 
 /// Service for PDF manipulation operations
 ///
@@ -50,7 +51,7 @@ class PdfService {
 
       final originalSize = await inputFile.length();
 
-      // Try Ghostscript on Windows for better image compression
+      // Try platform-specific compression for better image compression
       if (Platform.isWindows && options.compressImages) {
         final gsAvailable = await GhostscriptService.isAvailable();
         if (gsAvailable) {
@@ -65,7 +66,22 @@ class PdfService {
         }
       }
 
-      // Fallback to Syncfusion compression
+      // Try Android native compressor for real image compression
+      if (Platform.isAndroid && options.compressImages) {
+        final androidAvailable = await AndroidCompressorService.isAvailable();
+        if (androidAvailable) {
+          return await _compressWithAndroid(
+            inputPath: inputPath,
+            outputPath: outputPath,
+            options: options,
+            originalSize: originalSize,
+            stopwatch: stopwatch,
+            onProgress: onProgress,
+          );
+        }
+      }
+
+      // Fallback to Syncfusion compression (structure optimization only)
       return await _compressWithSyncfusion(
         inputPath: inputPath,
         outputPath: outputPath,
@@ -145,6 +161,78 @@ class PdfService {
     } else {
       // If Ghostscript fails, fallback to Syncfusion
       onProgress?.call(0.5, 'Ghostscript failed, using fallback...');
+      return await _compressWithSyncfusion(
+        inputPath: inputPath,
+        outputPath: outputPath,
+        options: options,
+        originalSize: originalSize,
+        stopwatch: stopwatch,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// Compress PDF using native Android compressor (Android only)
+  ///
+  /// Uses iText-based compression for real image quality reduction
+  Future<OperationResult<CompressionResult>> _compressWithAndroid({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+    required int originalSize,
+    required Stopwatch stopwatch,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    onProgress?.call(0.1, 'Using Android native compressor...');
+
+    // First, apply Syncfusion optimizations if needed (metadata, annotations)
+    String processedInput = inputPath;
+    if (options.removeMetadata || options.removeAnnotations) {
+      onProgress?.call(0.2, 'Applying document optimizations...');
+      final tempPath = outputPath.replaceAll('.pdf', '_temp.pdf');
+      await _applySyncfusionOptimizations(
+        inputPath: inputPath,
+        outputPath: tempPath,
+        options: options,
+      );
+      processedInput = tempPath;
+    }
+
+    onProgress?.call(0.4, 'Compressing PDF...');
+
+    final result = await AndroidCompressorService.compressPdf(
+      inputPath: processedInput,
+      outputPath: outputPath,
+      level: options.level,
+      onStatus: (status) {
+        onProgress?.call(0.6, status);
+      },
+    );
+
+    // Clean up temp file if created
+    if (processedInput != inputPath) {
+      try {
+        await File(processedInput).delete();
+      } catch (_) {}
+    }
+
+    if (result.success) {
+      onProgress?.call(1.0, 'Complete!');
+      stopwatch.stop();
+
+      return OperationSuccess(
+        data: CompressionResult(
+          outputPath: outputPath,
+          originalSize: originalSize,
+          compressedSize: result.outputSize!,
+          processingTime: stopwatch.elapsed,
+        ),
+        message: 'PDF compressed with Android native compressor',
+        duration: stopwatch.elapsed,
+      );
+    } else {
+      // If Android compressor fails, fallback to Syncfusion
+      onProgress?.call(0.5, 'Native compressor failed, using fallback...');
       return await _compressWithSyncfusion(
         inputPath: inputPath,
         outputPath: outputPath,

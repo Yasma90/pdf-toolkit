@@ -163,6 +163,8 @@ class CompressScreen extends ConsumerWidget {
                       valueColor: AppColors.success,
                     ),
                   ],
+                  onTertiaryAction: () => _saveResult(context, ref, state.result),
+                  tertiaryActionText: 'Save',
                   onPrimaryAction: () => _shareResult(ref, state.result),
                   primaryActionText: 'Share',
                   onSecondaryAction: () => _reset(ref),
@@ -244,6 +246,20 @@ class CompressScreen extends ConsumerWidget {
   Future<void> _shareResult(WidgetRef ref, CompressionResult result) async {
     final fileService = ref.read(fileServiceProvider);
     await fileService.shareFile(result.outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, WidgetRef ref, CompressionResult result) async {
+    final fileService = ref.read(fileServiceProvider);
+    final savedPath = await fileService.saveFileAs(result.outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _reset(WidgetRef ref) {

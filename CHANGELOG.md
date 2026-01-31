@@ -13,14 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **PDF Compression now works correctly** - files are actually reduced in size
   - **Windows**: Uses Ghostscript for professional-grade compression (30-90% reduction)
-    - Low: 300 DPI (printer quality)
-    - Medium: 150 DPI (ebook quality)
-    - High: 120 DPI (web quality)
-    - Extreme: 72 DPI (screen quality)
-  - **Android**: Uses Syncfusion optimizations (structure compression)
-    - Disabled incremental updates to force full document rewrite
-    - Enabled cross-reference streams for more efficient PDF structure
-    - Properly applies compression level to content streams
+    - Low: 200 DPI, 85% JPEG quality (high-quality printing)
+    - Medium: 150 DPI, 70% JPEG quality (general use)
+    - High: 100 DPI, 50% JPEG quality (web quality)
+    - Extreme: 72 DPI, 30% JPEG quality (maximum compression)
+  - **Android**: Uses native iText-based compression via pdf_compressor package
+    - Low, Medium, High quality levels for real image compression
+    - Falls back to Syncfusion structure optimization if needed
 - Resolved PdfDocument import conflict between `pdf` and `syncfusion_flutter_pdf` packages
 - Fixed AnimatedBuilder widget parameter mismatch (changed `animation` to `listenable`)
 - Corrected RecentFilesNotifier method calls (changed `addFile` to `addEntry`)
@@ -29,12 +28,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added missing OperationResult import in batch_screen.dart
 - **Drag & drop now works on Windows** - added `desktop_drop` package support
 
+### Added
+
+- **Save button** in compression result screen (in addition to Share)
+- **WINDOWS_REQUIREMENTS.md** - documentation for Ghostscript installation
+
 ### Changed
 
 - Updated Android compileSdk from 34 to 35 (required by flutter_plugin_android_lifecycle)
 - Updated Android NDK version to 25.1.8937393 (required by multiple plugins)
 - Refactored PdfService compression methods for better maintainability
 - Updated compression level mapping to use Dart 3 switch expressions
+- Improved Ghostscript compression parameters for better file size reduction
+  - Added JPEG quality control per compression level
+  - Enabled duplicate image detection
+  - Enabled font compression and optimization flags
 
 ## [1.0.0] - 2026-01-30
 

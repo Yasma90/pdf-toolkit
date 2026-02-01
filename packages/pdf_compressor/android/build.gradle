@@ -27,6 +27,7 @@ android {
 
     defaultConfig {
         minSdkVersion 21
+        consumerProguardFiles 'proguard-rules.pro'
     }
 
     lintOptions {
@@ -36,4 +37,6 @@ android {
 
 dependencies {
     implementation 'com.itextpdf:itextpdf:5.5.13.3'
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+    implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
 }

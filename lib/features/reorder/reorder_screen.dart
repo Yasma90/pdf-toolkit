@@ -267,7 +267,7 @@ class ReorderScreen extends ConsumerWidget {
           List.generate(pageCount, (i) => i);
       ref.read(reorderPagesToDeleteProvider.notifier).state = {};
       ref.read(reorderStateProvider.notifier).state =
-          ReorderState.ready(pageCount);
+          const ReorderState.ready(pageCount);
     }
   }
 

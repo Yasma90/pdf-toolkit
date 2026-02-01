@@ -262,7 +262,7 @@ class ConvertScreen extends ConsumerWidget {
         final imageBytes = await page.toPng();
 
         // Convert to requested format if not PNG
-        Uint8List finalBytes = imageBytes;
+        final Uint8List finalBytes = imageBytes;
         String extension = options.format.extension;
 
         // For JPEG, we need to convert from PNG

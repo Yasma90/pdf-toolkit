@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:pdf_toolkit/shared/theme/app_theme.dart';
 
 class FileDropZone extends StatefulWidget {
   final VoidCallback onTap;
+  final Function(List<String> paths)? onFilesDropped;
   final bool isLoading;
   final String? selectedFileName;
   final String? fileSize;
@@ -12,6 +15,7 @@ class FileDropZone extends StatefulWidget {
   const FileDropZone({
     super.key,
     required this.onTap,
+    this.onFilesDropped,
     this.isLoading = false,
     this.selectedFileName,
     this.fileSize,
@@ -47,67 +51,94 @@ class _FileDropZoneState extends State<FileDropZone>
     super.dispose();
   }
 
+  void _handleDrop(DropDoneDetails details) {
+    if (widget.isLoading) return;
+
+    final pdfPaths = details.files
+        .where((file) => file.path.toLowerCase().endsWith('.pdf'))
+        .map((file) => file.path)
+        .toList();
+
+    if (pdfPaths.isNotEmpty) {
+      if (widget.onFilesDropped != null) {
+        widget.onFilesDropped!(widget.multiple ? pdfPaths : [pdfPaths.first]);
+      }
+    }
+
+    setState(() => _isDragging = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasFile = widget.selectedFileName != null;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: widget.isLoading ? null : widget.onTap,
-      child: AnimatedBuilder(
-        animation: _pulseAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: hasFile ? 1.0 : _pulseAnimation.value,
-            child: child,
-          );
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: _isDragging
-                ? AppColors.primary.withOpacity(0.1)
-                : hasFile
-                    ? AppColors.success.withOpacity(0.05)
-                    : Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
+    return DropTarget(
+      onDragEntered: (_) {
+        if (!widget.isLoading) {
+          setState(() => _isDragging = true);
+        }
+      },
+      onDragExited: (_) {
+        setState(() => _isDragging = false);
+      },
+      onDragDone: _handleDrop,
+      child: GestureDetector(
+        onTap: widget.isLoading ? null : widget.onTap,
+        child: AnimatedBuilder(
+          listenable: _pulseAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: hasFile ? 1.0 : _pulseAnimation.value,
+              child: child,
+            );
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: _isDragging
+                  ? AppColors.primary.withOpacity(0.1)
+                  : hasFile
+                      ? AppColors.success.withOpacity(0.05)
+                      : Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _isDragging
+                    ? AppColors.primary
+                    : hasFile
+                        ? AppColors.success.withOpacity(0.5)
+                        : Theme.of(context).dividerColor,
+                width: _isDragging ? 2 : 1,
+                style: hasFile ? BorderStyle.solid : BorderStyle.none,
+              ),
+              boxShadow: _isDragging
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.2),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: DashedBorder(
               color: _isDragging
                   ? AppColors.primary
                   : hasFile
-                      ? AppColors.success.withOpacity(0.5)
-                      : Theme.of(context).dividerColor,
-              width: _isDragging ? 2 : 1,
-              style: hasFile ? BorderStyle.solid : BorderStyle.none,
-            ),
-            boxShadow: _isDragging
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
-          ),
-          child: DashedBorder(
-            color: _isDragging
-                ? AppColors.primary
-                : hasFile
-                    ? Colors.transparent
-                    : AppColors.textSecondary.withOpacity(0.3),
-            strokeWidth: 2,
-            gap: 8,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: widget.isLoading
-                  ? _buildLoadingContent()
-                  : hasFile
-                      ? _buildFileContent()
-                      : _buildEmptyContent(),
+                      ? Colors.transparent
+                      : AppColors.textSecondary.withOpacity(0.3),
+              strokeWidth: 2,
+              gap: 8,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: widget.isLoading
+                    ? _buildLoadingContent()
+                    : hasFile
+                        ? _buildFileContent()
+                        : _buildEmptyContent(),
+              ),
             ),
           ),
         ),
@@ -122,20 +153,25 @@ class _FileDropZoneState extends State<FileDropZone>
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: _isDragging
+                ? AppColors.primary.withOpacity(0.2)
+                : AppColors.primary.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
-            Icons.cloud_upload_outlined,
+            _isDragging ? Icons.file_download : Icons.cloud_upload_outlined,
             size: 48,
             color: AppColors.primary,
           ),
         ),
         const SizedBox(height: 24),
         Text(
-          widget.multiple ? 'Select PDF Files' : 'Select a PDF File',
+          _isDragging
+              ? 'Drop PDF file${widget.multiple ? 's' : ''} here'
+              : widget.multiple ? 'Select PDF Files' : 'Select a PDF File',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
+                color: _isDragging ? AppColors.primary : null,
               ),
         ),
         const SizedBox(height: 8),

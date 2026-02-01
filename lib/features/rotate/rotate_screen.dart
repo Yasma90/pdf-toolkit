@@ -167,6 +167,8 @@ class RotateScreen extends ConsumerWidget {
                   success: true,
                   title: 'Rotation Complete!',
                   subtitle: 'Your PDF pages have been rotated successfully',
+                  onTertiaryAction: () => _saveResult(context, state.outputPath),
+                  tertiaryActionText: 'Save',
                   onPrimaryAction: () => _shareResult(ref, state.outputPath),
                   primaryActionText: 'Share',
                   onSecondaryAction: () => _reset(ref),
@@ -259,11 +261,9 @@ class RotateScreen extends ConsumerWidget {
           RotateState.success(result.data);
 
       // Add to recent files
-      ref.read(recentFilesProvider.notifier).addFile(
-        fileName: selectedFile.fileName,
+      ref.read(recentFilesProvider.notifier).addEntry(
         filePath: result.data,
         operation: 'Rotate',
-        fileSize: selectedFile.fileSize,
       );
     } else if (result is OperationFailure<String>) {
       ref.read(rotateStateProvider.notifier).state =
@@ -274,6 +274,20 @@ class RotateScreen extends ConsumerWidget {
   Future<void> _shareResult(WidgetRef ref, String outputPath) async {
     final fileService = FileService();
     await fileService.shareFile(outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, String outputPath) async {
+    final fileService = FileService();
+    final savedPath = await fileService.saveFileAs(outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _reset(WidgetRef ref) {

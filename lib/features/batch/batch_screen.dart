@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf_toolkit/core/models/batch_options.dart';
 import 'package:pdf_toolkit/core/models/compression_level.dart';
+import 'package:pdf_toolkit/core/models/operation_result.dart';
 import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/services/file_service.dart';
 import 'package:pdf_toolkit/core/services/pdf_service.dart';
@@ -185,7 +186,7 @@ class BatchScreen extends ConsumerWidget {
                           ? '${files.length} file(s) selected'
                           : null,
                       isLoading: state is BatchProcessingState,
-                      allowMultiple: true,
+                      multiple: true,
                     ),
 
                     // File list
@@ -262,7 +263,7 @@ class BatchScreen extends ConsumerWidget {
 
   Future<void> _addFiles(WidgetRef ref) async {
     final fileService = FileService();
-    final files = await fileService.pickPdfFiles(allowMultiple: true);
+    final files = await fileService.pickPdfFiles(multiple: true);
     if (files.isNotEmpty) {
       final currentItems = [...ref.read(batchFilesProvider)];
       for (final file in files) {
@@ -335,7 +336,7 @@ class BatchScreen extends ConsumerWidget {
 
         if (success) {
           successCount++;
-          totalOriginalSize += item.file.fileSize;
+          totalOriginalSize += item.file.sizeInBytes;
 
           final updatedItems = [...ref.read(batchFilesProvider)];
           updatedItems[i] = item.copyWith(

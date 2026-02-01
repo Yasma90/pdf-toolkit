@@ -8,12 +8,12 @@ A powerful, cross-platform PDF manipulation application built with Flutter for W
 
 Reduce PDF file size with multiple compression levels:
 
-| Level | Quality | Expected Reduction | Best For |
-|-------|---------|-------------------|----------|
-| Low | 95% | 10-20% | Professional printing |
-| Medium | 75% | 30-50% | General use, email |
-| High | 50% | 50-70% | Web uploads, archiving |
-| Extreme | 30% | 70-90% | Quick previews |
+| Level   | Quality | Expected Reduction | Best For               |
+| ------- | ------- | ------------------ | ---------------------- |
+| Low     | 95%     | 10-20%             | Professional printing  |
+| Medium  | 75%     | 30-50%             | General use, email     |
+| High    | 50%     | 50-70%             | Web uploads, archiving |
+| Extreme | 30%     | 70-90%             | Quick previews         |
 
 **Advanced Options:**
 
@@ -43,12 +43,12 @@ Divide a PDF into multiple files:
 
 Export PDF pages as images:
 
-| Quality | DPI | Use Case |
-|---------|-----|----------|
-| Low | 72 | Fast preview, small files |
-| Medium | 150 | Balanced quality |
-| High | 300 | High quality output |
-| Print | 600 | Professional printing |
+| Quality | DPI | Use Case                  |
+| ------- | --- | ------------------------- |
+| Low     | 72  | Fast preview, small files |
+| Medium  | 150 | Balanced quality          |
+| High    | 300 | High quality output       |
+| Print   | 600 | Professional printing     |
 
 **Supported Formats:**
 
@@ -229,14 +229,14 @@ Track your processed files:
 
 ## Tech Stack
 
-| Technology | Purpose |
-|------------|---------|
-| Flutter 3.x | Cross-platform UI framework |
-| Dart 3.x | Programming language |
-| Riverpod | State management |
-| Syncfusion Flutter PDF | PDF processing |
-| Printing | PDF rasterization |
-| Material Design 3 | UI design system |
+| Technology             | Purpose                     |
+| ---------------------- | --------------------------- |
+| Flutter 3.x            | Cross-platform UI framework |
+| Dart 3.x               | Programming language        |
+| Riverpod               | State management            |
+| Syncfusion Flutter PDF | PDF processing              |
+| Printing               | PDF rasterization           |
+| Material Design 3      | UI design system            |
 
 ## Project Structure
 
@@ -362,11 +362,11 @@ flutter build windows --release
 
 ### Build Output Locations
 
-| Platform | Build Type | Output Path |
-|----------|------------|-------------|
-| Android | APK | `build/app/outputs/flutter-apk/app-release.apk` |
-| Android | AAB | `build/app/outputs/bundle/release/app-release.aab` |
-| Windows | EXE | `build/windows/x64/runner/Release/pdf_toolkit.exe` |
+| Platform | Build Type | Output Path                                        |
+| -------- | ---------- | -------------------------------------------------- |
+| Android  | APK        | `build/app/outputs/flutter-apk/app-release.apk`    |
+| Android  | AAB        | `build/app/outputs/bundle/release/app-release.aab` |
+| Windows  | EXE        | `build/windows/x64/runner/Release/pdf_toolkit.exe` |
 
 ## Architecture
 
@@ -399,7 +399,7 @@ This project follows **Clean Architecture** principles with a **Feature-First** 
 This project follows Git Flow branching strategy:
 
 ```text
-master ────────────────────────────────────────
+main ────────────────────────────────────────
   │
   └─> develop ──┬── feature/compress
                 ├── feature/merge
@@ -413,12 +413,12 @@ master ────────────────────────�
 
 ### Branches
 
-| Branch | Purpose |
-| ------ | ------- |
-| `master` | Production releases |
-| `develop` | Integration branch |
-| `feature/*` | New features |
-| `hotfix/*` | Production fixes |
+| Branch      | Purpose             |
+| ----------- | ------------------- |
+| `main`      | Production releases |
+| `develop`   | Integration branch  |
+| `feature/*` | New features        |
+| `hotfix/*`  | Production fixes    |
 | `release/*` | Release preparation |
 
 ### Feature Development Workflow
@@ -445,21 +445,21 @@ master ────────────────────────�
 
 **Page Tools:**
 
-| Tool     | Color  | Hex       |
-| -------- | ------ | --------- |
-| Extract  | Teal   | `#14B8A6` |
-| Rotate   | Orange | `#F97316` |
-| Reorder  | Indigo | `#6366F1` |
-| Numbers  | Lime   | `#84CC16` |
+| Tool    | Color  | Hex       |
+| ------- | ------ | --------- |
+| Extract | Teal   | `#14B8A6` |
+| Rotate  | Orange | `#F97316` |
+| Reorder | Indigo | `#6366F1` |
+| Numbers | Lime   | `#84CC16` |
 
 **Security & Enhancement:**
 
-| Tool      | Color     | Hex       |
-| --------- | --------- | --------- |
-| Protect   | Purple    | `#8B5CF6` |
-| Unlock    | Red       | `#EF4444` |
-| Watermark | Sky Blue  | `#0EA5E9` |
-| Batch     | Violet    | `#A855F7` |
+| Tool      | Color    | Hex       |
+| --------- | -------- | --------- |
+| Protect   | Purple   | `#8B5CF6` |
+| Unlock    | Red      | `#EF4444` |
+| Watermark | Sky Blue | `#0EA5E9` |
+| Batch     | Violet   | `#A855F7` |
 
 ### Theme Support
 
@@ -473,23 +473,23 @@ master ────────────────────────�
 
 ```yaml
 dependencies:
-  flutter_riverpod: ^2.4.9      # State management
-  syncfusion_flutter_pdf: ^24.1.41  # PDF processing
-  printing: ^5.11.1             # PDF rasterization
-  file_picker: ^6.1.1           # File selection
-  path_provider: ^2.1.2         # File paths
-  share_plus: ^7.2.1            # File sharing
-  google_fonts: ^6.1.0          # Typography
-  percent_indicator: ^4.2.3     # Progress UI
+  flutter_riverpod: ^2.4.9 # State management
+  syncfusion_flutter_pdf: ^24.1.41 # PDF processing
+  printing: ^5.11.1 # PDF rasterization
+  file_picker: ^6.1.1 # File selection
+  path_provider: ^2.1.2 # File paths
+  share_plus: ^7.2.1 # File sharing
+  google_fonts: ^6.1.0 # Typography
+  percent_indicator: ^4.2.3 # Progress UI
 ```
 
 ## Data Storage
 
 The app stores data locally in JSON format:
 
-| File | Location | Purpose |
-|------|----------|---------|
-| `settings.json` | Documents/PDF Toolkit/ | App preferences |
+| File                | Location               | Purpose            |
+| ------------------- | ---------------------- | ------------------ |
+| `settings.json`     | Documents/PDF Toolkit/ | App preferences    |
 | `recent_files.json` | Documents/PDF Toolkit/ | Processing history |
 
 ## Contributing
@@ -523,15 +523,15 @@ The app stores data locally in JSON format:
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-| Prefix | Purpose |
-|--------|---------|
-| `feat:` | New feature |
-| `fix:` | Bug fix |
-| `docs:` | Documentation |
-| `style:` | Formatting |
+| Prefix      | Purpose            |
+| ----------- | ------------------ |
+| `feat:`     | New feature        |
+| `fix:`      | Bug fix            |
+| `docs:`     | Documentation      |
+| `style:`    | Formatting         |
 | `refactor:` | Code restructuring |
-| `test:` | Tests |
-| `chore:` | Maintenance |
+| `test:`     | Tests              |
+| `chore:`    | Maintenance        |
 
 ## License
 

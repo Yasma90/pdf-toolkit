@@ -1,10 +1,10 @@
 name: pdf_toolkit
 description: A powerful cross-platform PDF manipulation toolkit for Windows and Android.
-publish_to: 'none'
-version: 1.0.0+1
+publish_to: "none"
+version: 1.0.2+3
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: ">=3.2.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -18,6 +18,8 @@ dependencies:
   pdf: ^3.10.7
   printing: ^5.11.1
   syncfusion_flutter_pdf: ^24.1.41
+  pdf_compressor:
+    path: packages/pdf_compressor
 
   # File Handling
   file_picker: ^6.1.1
@@ -27,6 +29,7 @@ dependencies:
 
   # UI Components
   flutter_dropzone: ^3.0.7
+  desktop_drop: ^0.4.4
   percent_indicator: ^4.2.3
   animated_text_kit: ^4.2.2
   shimmer: ^3.0.0
@@ -40,6 +43,7 @@ dependencies:
   path: ^1.8.3
   intl: ^0.18.1
   collection: ^1.18.0
+  url_launcher: ^6.2.4
 
 dev_dependencies:
   flutter_test:
@@ -52,16 +56,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/icons/
-
-  fonts:
-    - family: Poppins
-      fonts:
-        - asset: assets/fonts/Poppins-Regular.ttf
-        - asset: assets/fonts/Poppins-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Poppins-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Poppins-Bold.ttf
-          weight: 700
+  # Note: Poppins font is loaded via google_fonts package
+  # No custom font assets needed

@@ -167,6 +167,8 @@ class PageNumbersScreen extends ConsumerWidget {
                   success: true,
                   title: 'Page Numbers Added!',
                   subtitle: 'Your PDF now has page numbers',
+                  onTertiaryAction: () => _saveResult(context, state.outputPath),
+                  tertiaryActionText: 'Save',
                   onPrimaryAction: () => _shareResult(ref, state.outputPath),
                   primaryActionText: 'Share',
                   onSecondaryAction: () => _reset(ref),
@@ -230,11 +232,9 @@ class PageNumbersScreen extends ConsumerWidget {
           PageNumbersState.success(result.data);
 
       // Add to recent files
-      ref.read(recentFilesProvider.notifier).addFile(
-        fileName: selectedFile.fileName,
+      ref.read(recentFilesProvider.notifier).addEntry(
         filePath: result.data,
         operation: 'Page Numbers',
-        fileSize: selectedFile.fileSize,
       );
     } else if (result is OperationFailure<String>) {
       ref.read(pageNumbersStateProvider.notifier).state =
@@ -245,6 +245,20 @@ class PageNumbersScreen extends ConsumerWidget {
   Future<void> _shareResult(WidgetRef ref, String outputPath) async {
     final fileService = FileService();
     await fileService.shareFile(outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, String outputPath) async {
+    final fileService = FileService();
+    final savedPath = await fileService.saveFileAs(outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _reset(WidgetRef ref) {

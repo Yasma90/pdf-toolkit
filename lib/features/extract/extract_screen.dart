@@ -204,6 +204,9 @@ class _ExtractScreenState extends ConsumerState<ExtractScreen> {
                       value: state.result.formattedSize,
                     ),
                   ],
+                  onTertiaryAction: () =>
+                      _saveResult(context, state.result.outputPath),
+                  tertiaryActionText: 'Save',
                   onPrimaryAction: () =>
                       _shareResult(ref, state.result.outputPath),
                   primaryActionText: 'Share',
@@ -302,6 +305,20 @@ class _ExtractScreenState extends ConsumerState<ExtractScreen> {
   Future<void> _shareResult(WidgetRef ref, String outputPath) async {
     final fileService = ref.read(extractFileServiceProvider);
     await fileService.shareFile(outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, String outputPath) async {
+    final fileService = FileService();
+    final savedPath = await fileService.saveFileAs(outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _reset(WidgetRef ref) {

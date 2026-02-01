@@ -305,7 +305,7 @@ class BatchScreen extends ConsumerWidget {
     var successCount = 0;
     var failedCount = 0;
     var totalOriginalSize = 0;
-    var totalResultSize = 0;
+    final totalResultSize = 0;
     final processedItems = <BatchItem>[];
 
     for (int i = 0; i < items.length; i++) {
@@ -527,7 +527,7 @@ class _CompressionLevelPicker extends StatelessWidget {
                     label: Text(level.name),
                   ))
               .toList(),
-          selected: {CompressionLevel.medium},
+          selected: const {CompressionLevel.medium},
           onSelectionChanged: (selected) {
             // Update compression options
           },
@@ -590,7 +590,7 @@ class _RotationAnglePicker extends StatelessWidget {
                     label: Text('${angle.degrees}°'),
                   ))
               .toList(),
-          selected: {RotationAngle.clockwise90},
+          selected: const {RotationAngle.clockwise90},
           onSelectionChanged: (selected) {
             // Update rotation options
           },

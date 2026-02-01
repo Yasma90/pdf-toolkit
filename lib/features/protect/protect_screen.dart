@@ -73,7 +73,7 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
   final _confirmPasswordController = TextEditingController();
   final _ownerPasswordController = TextEditingController();
   bool _showPassword = false;
-  bool _showAdvancedOptions = false;
+  final bool _showAdvancedOptions = false;
 
   @override
   void dispose() {

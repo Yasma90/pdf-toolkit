@@ -39,8 +39,11 @@ public class PdfCompressorPlugin implements FlutterPlugin, MethodCallHandler {
         String inputPath = call.argument("inputPath").toString();
         String outputPath = call.argument("outputPath").toString();
         int quality = call.argument("quality");
+        int maxWidth = call.argument("maxWidth");
+        int maxHeight = call.argument("maxHeight");
+        boolean resizeImages = call.argument("resizeImages");
         try {
-          new CompressPdf(inputPath, outputPath, quality).run();
+          new CompressPdf(inputPath, outputPath, quality, maxWidth, maxHeight, resizeImages).run();
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -62,12 +65,18 @@ public class PdfCompressorPlugin implements FlutterPlugin, MethodCallHandler {
     String inputPath;
     String outputPath;
     int quality;
+    int maxWidth;
+    int maxHeight;
+    boolean resizeImages;
     final int compressionLevel = 9;
 
-    CompressPdf(String inputPath, String outputPath, int quality) {
+    CompressPdf(String inputPath, String outputPath, int quality, int maxWidth, int maxHeight, boolean resizeImages) {
       this.inputPath = inputPath;
       this.outputPath = outputPath;
       this.quality = quality;
+      this.maxWidth = maxWidth;
+      this.maxHeight = maxHeight;
+      this.resizeImages = resizeImages;
     }
 
     public void run() throws Exception {
@@ -172,10 +181,11 @@ public class PdfCompressorPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     /**
-     * 
-     * @param imageAsBytes
-     * @param quality
-     * @param outputImageStream
+     * Compress an image with configurable quality and size limits
+     *
+     * @param imageAsBytes Original image bytes
+     * @param quality JPEG compression quality (1-100)
+     * @param outputImageStream Output stream to write compressed image
      * @throws Exception
      */
     private Bitmap compressImage(byte[] imageAsBytes, int quality, ByteArrayOutputStream outputImageStream)
@@ -184,54 +194,52 @@ public class PdfCompressorPlugin implements FlutterPlugin, MethodCallHandler {
 
       BitmapFactory.Options options = new BitmapFactory.Options();
 
-      // by setting this field as true, the actual bitmap pixels are not loaded in the
-      // memory. Just the bounds are loaded. If
-      // you try the use the bitmap here, you will get null.
+      // First pass: get image dimensions without loading pixels
       options.inJustDecodeBounds = true;
-      Bitmap bmp = BitmapFactory.decodeByteArray(imageAsBytes, 0, imageAsBytes.length, options);
+      BitmapFactory.decodeByteArray(imageAsBytes, 0, imageAsBytes.length, options);
 
       int actualHeight = options.outHeight;
       int actualWidth = options.outWidth;
 
-      // max Height and width values of the compressed image is taken as 816x612
-      float maxHeight = 816.0f;
-      float maxWidth = 612.0f;
-      float imgRatio = actualWidth / actualHeight;
-      float maxRatio = maxWidth / maxHeight;
+      // Use dynamic max dimensions based on compression level
+      float maxHeightF = (float) this.maxHeight;
+      float maxWidthF = (float) this.maxWidth;
 
-      // width and height values are set maintaining the aspect ratio of the image
+      // Only resize if resizeImages is enabled and image exceeds max dimensions
+      if (this.resizeImages && (actualHeight > maxHeightF || actualWidth > maxWidthF)) {
+        float imgRatio = (float) actualWidth / (float) actualHeight;
+        float maxRatio = maxWidthF / maxHeightF;
 
-      if (actualHeight > maxHeight || actualWidth > maxWidth) {
+        // Maintain aspect ratio while fitting within max dimensions
         if (imgRatio < maxRatio) {
-          imgRatio = maxHeight / actualHeight;
+          imgRatio = maxHeightF / actualHeight;
           actualWidth = (int) (imgRatio * actualWidth);
-          actualHeight = (int) maxHeight;
+          actualHeight = (int) maxHeightF;
         } else if (imgRatio > maxRatio) {
-          imgRatio = maxWidth / actualWidth;
+          imgRatio = maxWidthF / actualWidth;
           actualHeight = (int) (imgRatio * actualHeight);
-          actualWidth = (int) maxWidth;
+          actualWidth = (int) maxWidthF;
         } else {
-          actualHeight = (int) maxHeight;
-          actualWidth = (int) maxWidth;
-
+          actualHeight = (int) maxHeightF;
+          actualWidth = (int) maxWidthF;
         }
       }
 
-      // setting inSampleSize value allows to load a scaled down version of the
-      // original image
+      // Calculate sample size for efficient memory usage
       options.inSampleSize = calculateInSampleSize(options, actualWidth, actualHeight);
 
-      // inJustDecodeBounds set to false to load the actual bitmap
+      // Second pass: load the actual bitmap
       options.inJustDecodeBounds = false;
-
-      // this options allow android to claim the bitmap memory if it runs low on
-      // memory
       options.inPurgeable = true;
       options.inInputShareable = true;
       options.inTempStorage = new byte[16 * 1024];
 
-      // load the bitmap from its path
-      bmp = BitmapFactory.decodeByteArray(imageAsBytes, 0, imageAsBytes.length, options);
+      Bitmap bmp = BitmapFactory.decodeByteArray(imageAsBytes, 0, imageAsBytes.length, options);
+
+      if (bmp == null) {
+        throw new Exception("Failed to decode image");
+      }
+
       scaledBitmap = Bitmap.createBitmap(actualWidth, actualHeight, Bitmap.Config.ARGB_8888);
 
       float ratioX = actualWidth / (float) options.outWidth;
@@ -247,9 +255,12 @@ public class PdfCompressorPlugin implements FlutterPlugin, MethodCallHandler {
       canvas.drawBitmap(bmp, middleX - bmp.getWidth() / 2, middleY - bmp.getHeight() / 2,
           new Paint(Paint.FILTER_BITMAP_FLAG));
 
-      // scaledBitmap = Bitmap.createBitmap(scaledBitmap, 0, 0, scaledBitmap.getWidth(), scaledBitmap.getHeight(), matrix,
-      //     true);
+      // Clean up original bitmap
+      if (!bmp.isRecycled()) {
+        bmp.recycle();
+      }
 
+      // Compress to JPEG with specified quality
       scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputImageStream);
       return scaledBitmap;
     }

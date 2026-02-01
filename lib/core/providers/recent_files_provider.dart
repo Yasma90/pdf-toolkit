@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:pdf_toolkit/core/models/pdf_file.dart';
 
 /// Provider for recent files management
 final recentFilesProvider =

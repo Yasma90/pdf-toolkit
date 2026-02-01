@@ -100,9 +100,9 @@ class HomeScreen extends ConsumerWidget {
             ),
 
             // Essential Tools Section
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(horizontal: 24),
                 child: _SectionHeader(
                   title: 'Essential Tools',
                   icon: Icons.star_outline,
@@ -152,9 +152,9 @@ class HomeScreen extends ConsumerWidget {
             ),
 
             // Page Tools Section
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
                 child: _SectionHeader(
                   title: 'Page Tools',
                   icon: Icons.auto_fix_high,
@@ -204,9 +204,9 @@ class HomeScreen extends ConsumerWidget {
             ),
 
             // Security & Enhancement Section
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
                 child: _SectionHeader(
                   title: 'Security & Enhancement',
                   icon: Icons.security,
@@ -510,7 +510,7 @@ class _RecentFileItem extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               file.formattedSize,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
@@ -518,7 +518,7 @@ class _RecentFileItem extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               file.formattedDate,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),

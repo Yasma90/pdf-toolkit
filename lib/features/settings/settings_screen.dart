@@ -24,7 +24,7 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // Appearance Section
-          _SectionHeader(title: 'Appearance'),
+          const _SectionHeader(title: 'Appearance'),
           _SettingsCard(
             children: [
               _ThemeSelector(
@@ -39,7 +39,7 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Output Section
-          _SectionHeader(title: 'Output'),
+          const _SectionHeader(title: 'Output'),
           _SettingsCard(
             children: [
               _SettingsTile(
@@ -72,7 +72,7 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Defaults Section
-          _SectionHeader(title: 'Defaults'),
+          const _SectionHeader(title: 'Defaults'),
           _SettingsCard(
             children: [
               _DropdownTile(
@@ -113,7 +113,7 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Data Section
-          _SectionHeader(title: 'Data'),
+          const _SectionHeader(title: 'Data'),
           _SettingsCard(
             children: [
               _SettingsTile(
@@ -128,7 +128,7 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // About Section
-          _SectionHeader(title: 'About'),
+          const _SectionHeader(title: 'About'),
           _SettingsCard(
             children: [
               _SettingsTile(
@@ -260,7 +260,7 @@ class _SettingsTile extends StatelessWidget {
         subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: AppColors.textSecondary),
+        style: const TextStyle(color: AppColors.textSecondary),
       ),
       trailing: trailing ?? const Icon(Icons.chevron_right),
       onTap: onTap,
@@ -288,7 +288,7 @@ class _SwitchTile extends StatelessWidget {
     return SwitchListTile(
       secondary: Icon(icon, color: AppColors.primary),
       title: Text(title),
-      subtitle: Text(subtitle, style: TextStyle(color: AppColors.textSecondary)),
+      subtitle: Text(subtitle, style: const TextStyle(color: AppColors.textSecondary)),
       value: value,
       onChanged: onChanged,
       activeColor: AppColors.primary,

@@ -1,13 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
 import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/services/file_service.dart';
+import 'package:pdf_toolkit/core/services/ghostscript_service.dart';
 import 'package:pdf_toolkit/core/services/pdf_service.dart';
 import 'package:pdf_toolkit/shared/theme/app_theme.dart';
 import 'package:pdf_toolkit/shared/widgets/file_drop_zone.dart';
 import 'package:pdf_toolkit/shared/widgets/progress_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Providers
 final fileServiceProvider = Provider((ref) => FileService());
@@ -20,6 +23,12 @@ final compressionOptionsProvider = StateProvider<CompressionOptions>(
 final compressionStateProvider = StateProvider<CompressionState>(
   (ref) => const CompressionState.idle(),
 );
+
+// Provider to check if Ghostscript is available (Windows only)
+final ghostscriptAvailableProvider = FutureProvider<bool>((ref) async {
+  if (!Platform.isWindows) return true; // Not needed on Android
+  return await GhostscriptService.isAvailable();
+});
 
 // State classes
 sealed class CompressionState {
@@ -55,11 +64,16 @@ class ErrorState extends CompressionState {
 class CompressScreen extends ConsumerWidget {
   const CompressScreen({super.key});
 
+  // Check if compression is available on this platform
+  // Windows uses Ghostscript, Android uses iText-based pdf_compressor
+  bool get _isCompressionAvailable => Platform.isWindows || Platform.isAndroid;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedFile = ref.watch(selectedFileProvider);
     final options = ref.watch(compressionOptionsProvider);
     final state = ref.watch(compressionStateProvider);
+    final ghostscriptAvailable = ref.watch(ghostscriptAvailableProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -75,18 +89,37 @@ class CompressScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // File selection
-              FileDropZone(
-                onTap: () => _selectFile(ref),
-                selectedFileName: selectedFile?.fileName,
-                fileSize: selectedFile?.formattedSize,
-                onClear: selectedFile != null
-                    ? () => ref.read(selectedFileProvider.notifier).state = null
-                    : null,
-                isLoading: state is ProcessingState,
+              // Platform not supported message
+              if (!_isCompressionAvailable) ...[
+                _PlatformNotSupportedCard(),
+                const SizedBox(height: 24),
+              ],
+
+              // Ghostscript not installed warning (Windows only)
+              if (Platform.isWindows && ghostscriptAvailable.value == false) ...[
+                const _GhostscriptNotInstalledCard(),
+                const SizedBox(height: 24),
+              ],
+
+              // File selection (disabled on unsupported platforms)
+              IgnorePointer(
+                ignoring: !_isCompressionAvailable,
+                child: Opacity(
+                  opacity: _isCompressionAvailable ? 1.0 : 0.5,
+                  child: FileDropZone(
+                    onTap: () => _selectFile(ref),
+                    onFilesDropped: (paths) => _handleDroppedFiles(ref, paths),
+                    selectedFileName: selectedFile?.fileName,
+                    fileSize: selectedFile?.formattedSize,
+                    onClear: selectedFile != null
+                        ? () => ref.read(selectedFileProvider.notifier).state = null
+                        : null,
+                    isLoading: state is ProcessingState,
+                  ),
+                ),
               ),
 
-              if (selectedFile != null && state is! ProcessingState) ...[
+              if (selectedFile != null && state is! ProcessingState && _isCompressionAvailable) ...[
                 const SizedBox(height: 32),
 
                 // Compression level selection
@@ -161,6 +194,8 @@ class CompressScreen extends ConsumerWidget {
                       valueColor: AppColors.success,
                     ),
                   ],
+                  onTertiaryAction: () => _saveResult(context, ref, state.result),
+                  tertiaryActionText: 'Save',
                   onPrimaryAction: () => _shareResult(ref, state.result),
                   primaryActionText: 'Share',
                   onSecondaryAction: () => _reset(ref),
@@ -191,6 +226,17 @@ class CompressScreen extends ConsumerWidget {
     final files = await fileService.pickPdfFiles();
     if (files.isNotEmpty) {
       ref.read(selectedFileProvider.notifier).state = files.first;
+      ref.read(compressionStateProvider.notifier).state =
+          const CompressionState.idle();
+    }
+  }
+
+  Future<void> _handleDroppedFiles(WidgetRef ref, List<String> paths) async {
+    if (paths.isEmpty) return;
+    final file = File(paths.first);
+    if (await file.exists()) {
+      final pdfFile = await PdfFile.fromFile(file);
+      ref.read(selectedFileProvider.notifier).state = pdfFile;
       ref.read(compressionStateProvider.notifier).state =
           const CompressionState.idle();
     }
@@ -231,6 +277,20 @@ class CompressScreen extends ConsumerWidget {
   Future<void> _shareResult(WidgetRef ref, CompressionResult result) async {
     final fileService = ref.read(fileServiceProvider);
     await fileService.shareFile(result.outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, WidgetRef ref, CompressionResult result) async {
+    final fileService = ref.read(fileServiceProvider);
+    final savedPath = await fileService.saveFileAs(result.outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _reset(WidgetRef ref) {
@@ -408,6 +468,174 @@ class _OptionSwitch extends StatelessWidget {
             value: value,
             onChanged: onChanged,
             activeColor: AppColors.compressColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlatformNotSupportedCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange.shade700,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Not Available on This Platform',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade800,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'PDF compression requires Ghostscript which is only available on Windows.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.computer,
+                  color: Colors.orange.shade600,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Use the Windows version of this app for full PDF compression with up to 90% file size reduction.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.orange.shade800,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GhostscriptNotInstalledCard extends StatelessWidget {
+  const _GhostscriptNotInstalledCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.info_outline,
+                  color: Colors.blue.shade700,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Install Ghostscript for Best Compression',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade800,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Ghostscript enables professional-grade compression with 30-90% file size reduction.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.blue.shade700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final url = Uri.parse('https://ghostscript.com/releases/gsdnld.html');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: const Icon(Icons.download, size: 18),
+              label: const Text('Download Ghostscript (Free)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'After installing, restart the app. Choose the 64-bit AGPL version.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.blue.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

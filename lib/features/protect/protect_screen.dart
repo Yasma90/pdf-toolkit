@@ -257,6 +257,8 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
                       value: state.result.hasOwnerPassword ? 'Set' : 'Same as user',
                     ),
                   ],
+                  onTertiaryAction: () => _saveResult(context, state.result.outputPath),
+                  tertiaryActionText: 'Save',
                   onPrimaryAction: () => _shareResult(ref, state.result.outputPath),
                   primaryActionText: 'Share',
                   onSecondaryAction: () => _reset(ref),
@@ -383,6 +385,20 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
   Future<void> _shareResult(WidgetRef ref, String outputPath) async {
     final fileService = ref.read(protectFileServiceProvider);
     await fileService.shareFile(outputPath);
+  }
+
+  Future<void> _saveResult(BuildContext context, String outputPath) async {
+    final fileService = FileService();
+    final savedPath = await fileService.saveFileAs(outputPath);
+
+    if (savedPath != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved to: $savedPath'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   void _reset(WidgetRef ref) {

@@ -84,6 +84,8 @@ class ResultCard extends StatelessWidget {
   final String? primaryActionText;
   final VoidCallback? onSecondaryAction;
   final String? secondaryActionText;
+  final VoidCallback? onTertiaryAction;
+  final String? tertiaryActionText;
   final VoidCallback? onDismiss;
 
   const ResultCard({
@@ -96,6 +98,8 @@ class ResultCard extends StatelessWidget {
     this.primaryActionText,
     this.onSecondaryAction,
     this.secondaryActionText,
+    this.onTertiaryAction,
+    this.tertiaryActionText,
     this.onDismiss,
   });
 
@@ -180,16 +184,35 @@ class ResultCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 24),
-            if (onPrimaryAction != null)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: onPrimaryAction,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: color,
-                  ),
-                  child: Text(primaryActionText ?? 'Continue'),
-                ),
+            // Action buttons row (Save and Share side by side)
+            if (onPrimaryAction != null || onTertiaryAction != null)
+              Row(
+                children: [
+                  if (onTertiaryAction != null)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: onTertiaryAction,
+                        icon: const Icon(Icons.save_alt, size: 18),
+                        label: Text(tertiaryActionText ?? 'Save'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: color,
+                        ),
+                      ),
+                    ),
+                  if (onPrimaryAction != null && onTertiaryAction != null)
+                    const SizedBox(width: 12),
+                  if (onPrimaryAction != null)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: onPrimaryAction,
+                        icon: const Icon(Icons.share, size: 18),
+                        label: Text(primaryActionText ?? 'Share'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: color.withOpacity(0.8),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             if (onSecondaryAction != null) ...[
               const SizedBox(height: 12),

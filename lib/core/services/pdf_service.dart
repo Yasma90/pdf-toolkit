@@ -3,18 +3,36 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
 import 'package:path/path.dart' as path;
+import 'package:pdf_compressor/pdf_compressor.dart';
 import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/image_format.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
 import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/models/security_options.dart';
 import 'package:pdf_toolkit/core/models/extraction_options.dart';
+import 'package:pdf_toolkit/core/services/ghostscript_service.dart';
 
 /// Service for PDF manipulation operations
+///
+/// Compression strategy by platform:
+/// - **Windows**: Uses Ghostscript for professional-grade compression with
+///   real image quality reduction (can achieve 30-90% file size reduction)
+/// - **Android/iOS/Other**: Uses Syncfusion's built-in compression which optimizes
+///   document structure (limited image compression - structure optimization only)
 class PdfService {
   /// Compress a PDF file with specified options
+  ///
+  /// On Windows with Ghostscript available:
+  /// - Uses Ghostscript for real image compression
+  /// - Maps compression levels to Ghostscript presets (screen/ebook/printer)
+  /// - Can significantly reduce file size for image-heavy PDFs
+  ///
+  /// On Android or when Ghostscript unavailable:
+  /// - Uses Syncfusion's document structure optimization
+  /// - Disables incremental updates for full document rewrite
+  /// - Uses cross-reference streams for efficient structure
   Future<OperationResult<CompressionResult>> compressPdf({
     required String inputPath,
     required String outputPath,
@@ -24,7 +42,7 @@ class PdfService {
     final stopwatch = Stopwatch()..start();
 
     try {
-      onProgress?.call(0.1, 'Loading PDF...');
+      onProgress?.call(0.05, 'Checking compression engine...');
 
       final inputFile = File(inputPath);
       if (!await inputFile.exists()) {
@@ -32,63 +50,42 @@ class PdfService {
       }
 
       final originalSize = await inputFile.length();
-      final inputBytes = await inputFile.readAsBytes();
 
-      onProgress?.call(0.3, 'Analyzing document...');
-
-      // Load PDF document
-      final document = PdfDocument(inputBytes: inputBytes);
-      final pageCount = document.pages.count;
-
-      onProgress?.call(0.4, 'Compressing images...');
-
-      // Apply compression based on options
-      if (options.compressImages) {
-        _compressImagesInDocument(document, options);
-      }
-
-      onProgress?.call(0.6, 'Optimizing structure...');
-
-      if (options.removeMetadata) {
-        document.documentInformation.title = '';
-        document.documentInformation.author = '';
-        document.documentInformation.subject = '';
-        document.documentInformation.keywords = '';
-        document.documentInformation.creator = '';
-        document.documentInformation.producer = '';
-      }
-
-      if (options.removeAnnotations) {
-        for (int i = 0; i < pageCount; i++) {
-          final page = document.pages[i];
-          page.annotations.clear();
+      // Try platform-specific compression for better image compression
+      if (Platform.isWindows && options.compressImages) {
+        final gsAvailable = await GhostscriptService.isAvailable();
+        if (gsAvailable) {
+          return await _compressWithGhostscript(
+            inputPath: inputPath,
+            outputPath: outputPath,
+            options: options,
+            originalSize: originalSize,
+            stopwatch: stopwatch,
+            onProgress: onProgress,
+          );
         }
       }
 
-      onProgress?.call(0.8, 'Saving compressed PDF...');
-
-      // Save the compressed document
-      final compressedBytes = await document.save();
-      document.dispose();
-
-      final outputFile = File(outputPath);
-      await outputFile.writeAsBytes(compressedBytes);
-
-      final compressedSize = compressedBytes.length;
-
-      onProgress?.call(1.0, 'Complete!');
-
-      stopwatch.stop();
-
-      return OperationSuccess(
-        data: CompressionResult(
+      // Use native Android compressor (iText-based) for real compression
+      if (Platform.isAndroid) {
+        return await _compressWithAndroidCompressor(
+          inputPath: inputPath,
           outputPath: outputPath,
+          options: options,
           originalSize: originalSize,
-          compressedSize: compressedSize,
-          processingTime: stopwatch.elapsed,
-        ),
-        message: 'PDF compressed successfully',
-        duration: stopwatch.elapsed,
+          stopwatch: stopwatch,
+          onProgress: onProgress,
+        );
+      }
+
+      // Fallback to Syncfusion compression (structure optimization only)
+      return await _compressWithSyncfusion(
+        inputPath: inputPath,
+        outputPath: outputPath,
+        options: options,
+        originalSize: originalSize,
+        stopwatch: stopwatch,
+        onProgress: onProgress,
       );
     } catch (e, stackTrace) {
       stopwatch.stop();
@@ -100,7 +97,286 @@ class PdfService {
     }
   }
 
+  /// Compress PDF using Ghostscript (Windows only)
+  ///
+  /// Provides professional-grade compression with real image quality reduction
+  Future<OperationResult<CompressionResult>> _compressWithGhostscript({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+    required int originalSize,
+    required Stopwatch stopwatch,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    onProgress?.call(0.1, 'Using Ghostscript engine...');
+
+    // First, apply Syncfusion optimizations if needed (metadata, annotations)
+    String processedInput = inputPath;
+    if (options.removeMetadata || options.removeAnnotations) {
+      onProgress?.call(0.2, 'Applying document optimizations...');
+      final tempPath = outputPath.replaceAll('.pdf', '_temp.pdf');
+      await _applySyncfusionOptimizations(
+        inputPath: inputPath,
+        outputPath: tempPath,
+        options: options,
+      );
+      processedInput = tempPath;
+    }
+
+    onProgress?.call(0.4, 'Compressing images with Ghostscript...');
+
+    final result = await GhostscriptService.compressPdf(
+      inputPath: processedInput,
+      outputPath: outputPath,
+      level: options.level,
+      onStatus: (status) {
+        onProgress?.call(0.6, status);
+      },
+    );
+
+    // Clean up temp file if created
+    if (processedInput != inputPath) {
+      try {
+        await File(processedInput).delete();
+      } catch (_) {}
+    }
+
+    if (result.success) {
+      onProgress?.call(1.0, 'Complete!');
+      stopwatch.stop();
+
+      return OperationSuccess(
+        data: CompressionResult(
+          outputPath: outputPath,
+          originalSize: originalSize,
+          compressedSize: result.outputSize!,
+          processingTime: stopwatch.elapsed,
+        ),
+        message: 'PDF compressed with Ghostscript',
+        duration: stopwatch.elapsed,
+      );
+    } else {
+      // If Ghostscript fails, fallback to Syncfusion
+      onProgress?.call(0.5, 'Ghostscript failed, using fallback...');
+      return await _compressWithSyncfusion(
+        inputPath: inputPath,
+        outputPath: outputPath,
+        options: options,
+        originalSize: originalSize,
+        stopwatch: stopwatch,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// Compress PDF using native Android compressor (iText-based)
+  ///
+  /// Provides real compression on Android using the pdf_compressor package
+  /// which uses iText library for image and content compression
+  Future<OperationResult<CompressionResult>> _compressWithAndroidCompressor({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+    required int originalSize,
+    required Stopwatch stopwatch,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    try {
+      onProgress?.call(0.1, 'Using Android compression engine...');
+
+      // Map our compression level to pdf_compressor quality
+      final quality = _mapToCompressQuality(options.level);
+
+      onProgress?.call(0.3, 'Compressing PDF...');
+
+      // Use the pdf_compressor package
+      await PdfCompressor.compressPdfFile(inputPath, outputPath, quality);
+
+      onProgress?.call(0.8, 'Finalizing...');
+
+      // Get compressed file size
+      final outputFile = File(outputPath);
+      if (!await outputFile.exists()) {
+        // Fallback to Syncfusion if compression failed
+        return await _compressWithSyncfusion(
+          inputPath: inputPath,
+          outputPath: outputPath,
+          options: options,
+          originalSize: originalSize,
+          stopwatch: stopwatch,
+          onProgress: onProgress,
+        );
+      }
+
+      final compressedSize = await outputFile.length();
+
+      onProgress?.call(1.0, 'Complete!');
+      stopwatch.stop();
+
+      return OperationSuccess(
+        data: CompressionResult(
+          outputPath: outputPath,
+          originalSize: originalSize,
+          compressedSize: compressedSize,
+          processingTime: stopwatch.elapsed,
+        ),
+        message: 'PDF compressed with Android native engine',
+        duration: stopwatch.elapsed,
+      );
+    } catch (e) {
+      // Fallback to Syncfusion if Android compressor fails
+      onProgress?.call(0.5, 'Native compression failed, using fallback...');
+      return await _compressWithSyncfusion(
+        inputPath: inputPath,
+        outputPath: outputPath,
+        options: options,
+        originalSize: originalSize,
+        stopwatch: stopwatch,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// Map compression level to pdf_compressor quality
+  CompressQuality _mapToCompressQuality(CompressionLevel level) {
+    return switch (level) {
+      CompressionLevel.low => CompressQuality.HIGH,      // Less compression, better quality
+      CompressionLevel.medium => CompressQuality.MEDIUM,
+      CompressionLevel.high => CompressQuality.LOW,      // More compression, lower quality
+      CompressionLevel.extreme => CompressQuality.LOW,
+      CompressionLevel.custom => CompressQuality.MEDIUM,
+    };
+  }
+
+  /// Compress PDF using Syncfusion (cross-platform fallback)
+  Future<OperationResult<CompressionResult>> _compressWithSyncfusion({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+    required int originalSize,
+    required Stopwatch stopwatch,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    onProgress?.call(0.1, 'Loading PDF...');
+
+    final inputBytes = await File(inputPath).readAsBytes();
+
+    onProgress?.call(0.3, 'Analyzing document...');
+
+    final document = syncfusion.PdfDocument(inputBytes: inputBytes);
+    final pageCount = document.pages.count;
+
+    onProgress?.call(0.4, 'Applying compression settings...');
+
+    // Apply compression configuration
+    _configureDocumentCompression(document, options);
+
+    onProgress?.call(0.6, 'Applying optimizations...');
+
+    // Apply optional optimizations
+    _applyOptionalOptimizations(document, options, pageCount);
+
+    onProgress?.call(0.8, 'Saving compressed PDF...');
+
+    final compressedBytes = await document.save();
+    document.dispose();
+
+    await File(outputPath).writeAsBytes(compressedBytes);
+
+    final compressedSize = compressedBytes.length;
+
+    onProgress?.call(1.0, 'Complete!');
+    stopwatch.stop();
+
+    return OperationSuccess(
+      data: CompressionResult(
+        outputPath: outputPath,
+        originalSize: originalSize,
+        compressedSize: compressedSize,
+        processingTime: stopwatch.elapsed,
+      ),
+      message: 'PDF compressed successfully',
+      duration: stopwatch.elapsed,
+    );
+  }
+
+  /// Apply only Syncfusion optimizations (metadata, annotations) without compression
+  Future<void> _applySyncfusionOptimizations({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+  }) async {
+    final inputBytes = await File(inputPath).readAsBytes();
+    final document = syncfusion.PdfDocument(inputBytes: inputBytes);
+    final pageCount = document.pages.count;
+
+    // Don't apply compression settings - just optimizations
+    document.fileStructure.incrementalUpdate = false;
+
+    _applyOptionalOptimizations(document, options, pageCount);
+
+    final bytes = await document.save();
+    document.dispose();
+
+    await File(outputPath).writeAsBytes(bytes);
+  }
+
+  /// Configure document settings for optimal compression
+  void _configureDocumentCompression(
+    syncfusion.PdfDocument document,
+    CompressionOptions options,
+  ) {
+    // CRITICAL: Disable incremental update to force full rewrite
+    // Without this, changes are appended and file size increases
+    document.fileStructure.incrementalUpdate = false;
+
+    // Use cross-reference stream for more efficient PDF structure
+    document.fileStructure.crossReferenceType =
+        syncfusion.PdfCrossReferenceType.crossReferenceStream;
+
+    // Set compression level for content streams
+    // This affects how content streams (including image data) are compressed
+    document.compressionLevel = _getCompressionLevel(options.level);
+  }
+
+  /// Apply optional optimizations based on user settings
+  void _applyOptionalOptimizations(
+    syncfusion.PdfDocument document,
+    CompressionOptions options,
+    int pageCount,
+  ) {
+    if (options.removeMetadata) {
+      _clearDocumentMetadata(document);
+    }
+
+    if (options.removeAnnotations) {
+      _flattenAnnotations(document, pageCount);
+    }
+  }
+
+  /// Clear all document metadata fields
+  void _clearDocumentMetadata(syncfusion.PdfDocument document) {
+    final info = document.documentInformation;
+    info.title = '';
+    info.author = '';
+    info.subject = '';
+    info.keywords = '';
+    info.creator = '';
+    info.producer = '';
+  }
+
+  /// Flatten annotations on all pages
+  void _flattenAnnotations(syncfusion.PdfDocument document, int pageCount) {
+    for (int i = 0; i < pageCount; i++) {
+      document.pages[i].annotations.flattenAllAnnotations();
+    }
+  }
+
   /// Merge multiple PDF files into one
+  ///
+  /// Preserves original page properties including:
+  /// - Page size and margins
+  /// - Visual content layout
   Future<OperationResult<MergeResult>> mergePdfs({
     required List<String> inputPaths,
     required String outputPath,
@@ -119,7 +395,7 @@ class PdfService {
 
       onProgress?.call(0.1, 'Preparing merge...');
 
-      final outputDocument = PdfDocument();
+      final outputDocument = syncfusion.PdfDocument();
       int totalPages = 0;
 
       for (int i = 0; i < inputPaths.length; i++) {
@@ -129,19 +405,31 @@ class PdfService {
 
         final inputFile = File(inputPath);
         if (!await inputFile.exists()) {
+          outputDocument.dispose();
           return OperationFailure(error: 'File not found: ${path.basename(inputPath)}');
         }
 
         final inputBytes = await inputFile.readAsBytes();
-        final inputDocument = PdfDocument(inputBytes: inputBytes);
+        final inputDocument = syncfusion.PdfDocument(inputBytes: inputBytes);
 
-        // Import all pages from the input document
+        // Import all pages preserving original page size
         for (int j = 0; j < inputDocument.pages.count; j++) {
-          final template = inputDocument.pages[j].createTemplate();
-          final page = outputDocument.pages.add();
+          final sourcePage = inputDocument.pages[j];
+          final template = sourcePage.createTemplate();
+          final sourceSize = sourcePage.size;
+
+          // Create a section with the same page size as source
+          // This preserves the original page dimensions
+          final section = outputDocument.sections!.add();
+          section.pageSettings.size = sourceSize;
+          section.pageSettings.margins.all = 0;
+
+          // Add page to section and draw template
+          final page = section.pages.add();
           page.graphics.drawPdfTemplate(
             template,
-            const Offset(0, 0),
+            const ui.Offset(0, 0),
+            sourceSize,
           );
           totalPages++;
         }
@@ -183,6 +471,10 @@ class PdfService {
   }
 
   /// Split a PDF file into multiple files
+  ///
+  /// Preserves original page properties including:
+  /// - Page size and margins
+  /// - Visual content layout
   Future<OperationResult<SplitResult>> splitPdf({
     required String inputPath,
     required String outputDirectory,
@@ -202,7 +494,7 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final inputDocument = PdfDocument(inputBytes: inputBytes);
+      final inputDocument = syncfusion.PdfDocument(inputBytes: inputBytes);
       final totalPages = inputDocument.pages.count;
       final baseName = path.basenameWithoutExtension(inputPath);
 
@@ -215,10 +507,21 @@ class PdfService {
             final progress = 0.1 + (0.8 * (i / totalPages));
             onProgress?.call(progress, 'Creating page ${i + 1} of $totalPages...');
 
-            final outputDoc = PdfDocument();
-            final template = inputDocument.pages[i].createTemplate();
+            final sourcePage = inputDocument.pages[i];
+            final template = sourcePage.createTemplate();
+            final sourceSize = sourcePage.size;
+
+            // Create document with same page size as source
+            final outputDoc = syncfusion.PdfDocument();
+            outputDoc.pageSettings.size = sourceSize;
+            outputDoc.pageSettings.margins.all = 0;
+
             final page = outputDoc.pages.add();
-            page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+            page.graphics.drawPdfTemplate(
+              template,
+              const ui.Offset(0, 0),
+              sourceSize,
+            );
 
             final outputPath = path.join(
               outputDirectory,
@@ -228,7 +531,7 @@ class PdfService {
             await File(outputPath).writeAsBytes(bytes);
 
             outputPaths.add(outputPath);
-            totalSize += bytes.length;
+            totalSize += bytes.length as int;
             outputDoc.dispose();
           }
           break;
@@ -241,13 +544,25 @@ class PdfService {
             final progress = 0.1 + (0.8 * (i / totalPages));
             onProgress?.call(progress, 'Creating file $fileIndex...');
 
-            final outputDoc = PdfDocument();
+            final outputDoc = syncfusion.PdfDocument();
             final endPage = (i + perFile).clamp(0, totalPages);
 
+            // Add pages preserving original size using sections
             for (int j = i; j < endPage; j++) {
-              final template = inputDocument.pages[j].createTemplate();
-              final page = outputDoc.pages.add();
-              page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+              final sourcePage = inputDocument.pages[j];
+              final template = sourcePage.createTemplate();
+              final sourceSize = sourcePage.size;
+
+              final section = outputDoc.sections!.add();
+              section.pageSettings.size = sourceSize;
+              section.pageSettings.margins.all = 0;
+
+              final page = section.pages.add();
+              page.graphics.drawPdfTemplate(
+                template,
+                const ui.Offset(0, 0),
+                sourceSize,
+              );
             }
 
             final outputPath = path.join(
@@ -258,7 +573,7 @@ class PdfService {
             await File(outputPath).writeAsBytes(bytes);
 
             outputPaths.add(outputPath);
-            totalSize += bytes.length;
+            totalSize += bytes.length as int;
             outputDoc.dispose();
             fileIndex++;
           }
@@ -316,7 +631,7 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final document = PdfDocument(inputBytes: inputBytes);
+      final document = syncfusion.PdfDocument(inputBytes: inputBytes);
       final totalPages = document.pages.count;
       final baseName = path.basenameWithoutExtension(inputPath);
 
@@ -389,7 +704,7 @@ class PdfService {
 
   /// Render a PDF page to image bytes
   Future<Uint8List?> _renderPageToImage(
-    PdfDocument document,
+    syncfusion.PdfDocument document,
     int pageIndex,
     int dpi,
     ImageFormat format,
@@ -403,7 +718,7 @@ class PdfService {
       // Note: Full rendering requires platform-specific implementation
       // This is a simplified version using Syncfusion's capabilities
 
-      final PdfPageLayer layer = page.layers.add(name: 'ImageLayer');
+      final syncfusion.PdfPageLayer layer = page.layers.add(name: 'ImageLayer');
 
       // For actual image rendering, we'll use the printing package
       // which provides rasterization capabilities
@@ -439,26 +754,26 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final document = PdfDocument(inputBytes: inputBytes);
+      final document = syncfusion.PdfDocument(inputBytes: inputBytes);
 
       onProgress?.call(0.3, 'Configuring security...');
 
       // Create security settings based on encryption level
-      final PdfSecurity security = document.security;
+      final syncfusion.PdfSecurity security = document.security;
 
       // Set encryption algorithm
       switch (options.encryptionLevel) {
         case EncryptionLevel.rc4_40:
-          security.algorithm = PdfEncryptionAlgorithm.rc4x40Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.rc4x40Bit;
           break;
         case EncryptionLevel.rc4_128:
-          security.algorithm = PdfEncryptionAlgorithm.rc4x128Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.rc4x128Bit;
           break;
         case EncryptionLevel.aes128:
-          security.algorithm = PdfEncryptionAlgorithm.aesx128Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.aesx128Bit;
           break;
         case EncryptionLevel.aes256:
-          security.algorithm = PdfEncryptionAlgorithm.aesx256Bit;
+          security.algorithm = syncfusion.PdfEncryptionAlgorithm.aesx256Bit;
           break;
       }
 
@@ -475,28 +790,28 @@ class PdfService {
       security.permissions.clear();
 
       if (perms.allowPrinting) {
-        security.permissions.add(PdfPermissionsFlags.print);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.print);
       }
       if (perms.allowModifying) {
-        security.permissions.add(PdfPermissionsFlags.editContent);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.editContent);
       }
       if (perms.allowCopying) {
-        security.permissions.add(PdfPermissionsFlags.copyContent);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.copyContent);
       }
       if (perms.allowAnnotations) {
-        security.permissions.add(PdfPermissionsFlags.editAnnotations);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.editAnnotations);
       }
       if (perms.allowFillingForms) {
-        security.permissions.add(PdfPermissionsFlags.fillFields);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.fillFields);
       }
       if (perms.allowAccessibility) {
-        security.permissions.add(PdfPermissionsFlags.accessibilityCopyContent);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.accessibilityCopyContent);
       }
       if (perms.allowAssembly) {
-        security.permissions.add(PdfPermissionsFlags.assembleDocument);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.assembleDocument);
       }
       if (perms.allowHighQualityPrint) {
-        security.permissions.add(PdfPermissionsFlags.fullQualityPrint);
+        security.permissions.add(syncfusion.PdfPermissionsFlags.fullQualityPrint);
       }
 
       onProgress?.call(0.8, 'Saving protected PDF...');
@@ -534,6 +849,10 @@ class PdfService {
   }
 
   /// Extract specific pages from PDF
+  ///
+  /// Preserves original page properties including:
+  /// - Page size and margins
+  /// - Visual content layout
   Future<OperationResult<ExtractionResult>> extractPages({
     required String inputPath,
     required String outputPath,
@@ -552,7 +871,7 @@ class PdfService {
       }
 
       final inputBytes = await inputFile.readAsBytes();
-      final inputDocument = PdfDocument(inputBytes: inputBytes);
+      final inputDocument = syncfusion.PdfDocument(inputBytes: inputBytes);
 
       onProgress?.call(0.2, 'Analyzing pages...');
 
@@ -567,17 +886,28 @@ class PdfService {
       onProgress?.call(0.3, 'Extracting pages...');
 
       // Create output document
-      final outputDocument = PdfDocument();
+      final outputDocument = syncfusion.PdfDocument();
 
       for (int i = 0; i < pagesToExtract.length; i++) {
         final pageIndex = pagesToExtract[i];
         final progress = 0.3 + (0.6 * (i / pagesToExtract.length));
         onProgress?.call(progress, 'Extracting page ${pageIndex + 1}...');
 
-        // Copy page to new document
-        final template = inputDocument.pages[pageIndex].createTemplate();
-        final page = outputDocument.pages.add();
-        page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+        // Copy page preserving original size using sections
+        final sourcePage = inputDocument.pages[pageIndex];
+        final template = sourcePage.createTemplate();
+        final sourceSize = sourcePage.size;
+
+        final section = outputDocument.sections!.add();
+        section.pageSettings.size = sourceSize;
+        section.pageSettings.margins.all = 0;
+
+        final page = section.pages.add();
+        page.graphics.drawPdfTemplate(
+          template,
+          const ui.Offset(0, 0),
+          sourceSize,
+        );
       }
 
       inputDocument.dispose();
@@ -622,7 +952,7 @@ class PdfService {
       if (!await file.exists()) return null;
 
       final bytes = await file.readAsBytes();
-      final document = PdfDocument(inputBytes: bytes);
+      final document = syncfusion.PdfDocument(inputBytes: bytes);
 
       final metadata = PdfMetadata(
         pageCount: document.pages.count,
@@ -641,11 +971,15 @@ class PdfService {
     }
   }
 
-  /// Apply image compression to document
-  void _compressImagesInDocument(PdfDocument document, CompressionOptions options) {
-    // Syncfusion PDF handles compression internally
-    // For more advanced compression, we'd iterate through images
-    // and re-encode them with lower quality
+  /// Map application compression level to Syncfusion compression level
+  syncfusion.PdfCompressionLevel _getCompressionLevel(CompressionLevel level) {
+    return switch (level) {
+      CompressionLevel.low => syncfusion.PdfCompressionLevel.normal,
+      CompressionLevel.medium => syncfusion.PdfCompressionLevel.aboveNormal,
+      CompressionLevel.high => syncfusion.PdfCompressionLevel.best,
+      CompressionLevel.extreme => syncfusion.PdfCompressionLevel.best,
+      CompressionLevel.custom => syncfusion.PdfCompressionLevel.normal,
+    };
   }
 }
 

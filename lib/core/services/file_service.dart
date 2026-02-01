@@ -126,6 +126,38 @@ class FileService {
     }
   }
 
+  /// Save file to user-selected location (Save As dialog)
+  Future<String?> saveFileAs(String sourcePath, {String? suggestedName}) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) return null;
+
+      final fileName = suggestedName ?? path.basename(sourcePath);
+
+      // Use file picker's save dialog
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save PDF',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result == null) return null;
+
+      // Ensure the path has .pdf extension
+      String savePath = result;
+      if (!savePath.toLowerCase().endsWith('.pdf')) {
+        savePath = '$savePath.pdf';
+      }
+
+      // Copy file to selected location
+      await sourceFile.copy(savePath);
+      return savePath;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Get recent files from output directory
   Future<List<PdfFile>> getRecentFiles({int limit = 10}) async {
     try {

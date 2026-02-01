@@ -6,7 +6,7 @@ Este workflow te permite compilar la aplicación para Android y Windows utilizan
 
 ### Prerrequisitos
 
-- Tener instalado el Flutter SDK (versión 3.2.0 o superior).
+- Tener instalado el Flutter SDK (versión 3.24.5 o superior).
 - Tener configurado el Android SDK para el APK.
 - Tener instalado Visual Studio 2022 con desarrollo para escritorio con C++ para la versión de Windows.
 
@@ -28,7 +28,6 @@ Este workflow te permite compilar la aplicación para Android y Windows utilizan
    _Esto generará el APK en `build\app\outputs\flutter-apk\app-release.apk` y el ejecutable de Windows en `build\windows\x64\runner\Release\`._
 
 3. **Generar una versión de lanzamiento (Completo):**
-   Si deseas generar un paquete de distribución con número de versión, notas de lanzamiento y checksums:
    ```powershell
    .\scripts\release.ps1 -version "1.0.0" -target all
    ```

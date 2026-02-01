@@ -78,10 +78,16 @@ GoogleService-Info.plist
 /android/app/src/main/res/values/styles.xml
 /android/app/src/main/res/values-night/
 
-# Gradle cache
+# Gradle cache and wrapper
 .gradle/
 **/android/.gradle/
 **/android/local.properties
+/android/gradle/
+/android/gradlew
+/android/gradlew.bat
+
+# Android generated Java files
+/android/app/src/main/java/
 
 # Package lock files (can cause conflicts)
 pubspec.lock

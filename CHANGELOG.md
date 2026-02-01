@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated pdf_compressor build.gradle: compileSdkVersion 34, minSdkVersion 21, replaced jcenter with mavenCentral
 - Added BouncyCastle dependencies (bcprov-jdk15on, bcpkix-jdk15on) required by iText for Android release builds
 - Added ProGuard rules to prevent R8 from stripping crypto classes
+- Added README.txt with Ghostscript installation instructions for Windows distribution
+- Added ProGuard rules to main app for BouncyCastle/iText compatibility
 
 ### Changed
 

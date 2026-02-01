@@ -20,3 +20,14 @@
 
 # Keep PDF processing classes
 -keep class com.pdftools.** { *; }
+
+# BouncyCastle - Required by iText for PDF encryption/compression
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+
+# iText PDF library
+-keep class com.itextpdf.** { *; }
+-dontwarn com.itextpdf.**
+
+# pdf_compressor plugin
+-keep class com.kaizen404.pdf_compressor.** { *; }

@@ -57,7 +57,8 @@ class CompressScreen extends ConsumerWidget {
   const CompressScreen({super.key});
 
   // Check if compression is available on this platform
-  bool get _isCompressionAvailable => Platform.isWindows;
+  // Windows uses Ghostscript, Android uses iText-based pdf_compressor
+  bool get _isCompressionAvailable => Platform.isWindows || Platform.isAndroid;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

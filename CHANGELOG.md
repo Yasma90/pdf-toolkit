@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-01-31
+
+### Added
+
+- **PDF Compression now works on Android** - integrated pdf_compressor package with iText library
+  - Uses local fork with AGP 8+ compatibility fix (added `namespace` declaration)
+  - Compression levels mapped: Low (50%), Medium (30%), High/Extreme (10% quality)
+  - Falls back to Syncfusion if native compression fails
+
+### Fixed
+
+- Fixed pdf_compressor AGP 8+ build error by adding `namespace 'com.kaizen404.pdf_compressor'`
+- Updated pdf_compressor build.gradle: compileSdkVersion 34, minSdkVersion 21, replaced jcenter with mavenCentral
+
+### Changed
+
+- Compress feature now enabled on both Windows (Ghostscript) and Android (iText/pdf_compressor)
+- Removed "Windows only" badge from Compress tool on home screen
+
 ## [1.0.1] - 2026-01-31
 
 ### Fixed

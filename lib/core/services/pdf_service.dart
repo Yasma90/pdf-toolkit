@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
 import 'package:path/path.dart' as path;
+import 'package:pdf_compressor/pdf_compressor.dart';
 import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/image_format.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
@@ -63,6 +64,18 @@ class PdfService {
             onProgress: onProgress,
           );
         }
+      }
+
+      // Use native Android compressor (iText-based) for real compression
+      if (Platform.isAndroid) {
+        return await _compressWithAndroidCompressor(
+          inputPath: inputPath,
+          outputPath: outputPath,
+          options: options,
+          originalSize: originalSize,
+          stopwatch: stopwatch,
+          onProgress: onProgress,
+        );
       }
 
       // Fallback to Syncfusion compression (structure optimization only)
@@ -156,7 +169,85 @@ class PdfService {
     }
   }
 
-  /// Compress PDF using native Android compressor (Android only)
+  /// Compress PDF using native Android compressor (iText-based)
+  ///
+  /// Provides real compression on Android using the pdf_compressor package
+  /// which uses iText library for image and content compression
+  Future<OperationResult<CompressionResult>> _compressWithAndroidCompressor({
+    required String inputPath,
+    required String outputPath,
+    required CompressionOptions options,
+    required int originalSize,
+    required Stopwatch stopwatch,
+    Function(double progress, String? step)? onProgress,
+  }) async {
+    try {
+      onProgress?.call(0.1, 'Using Android compression engine...');
+
+      // Map our compression level to pdf_compressor quality
+      final quality = _mapToCompressQuality(options.level);
+
+      onProgress?.call(0.3, 'Compressing PDF...');
+
+      // Use the pdf_compressor package
+      await PdfCompressor.compressPdfFile(inputPath, outputPath, quality);
+
+      onProgress?.call(0.8, 'Finalizing...');
+
+      // Get compressed file size
+      final outputFile = File(outputPath);
+      if (!await outputFile.exists()) {
+        // Fallback to Syncfusion if compression failed
+        return await _compressWithSyncfusion(
+          inputPath: inputPath,
+          outputPath: outputPath,
+          options: options,
+          originalSize: originalSize,
+          stopwatch: stopwatch,
+          onProgress: onProgress,
+        );
+      }
+
+      final compressedSize = await outputFile.length();
+
+      onProgress?.call(1.0, 'Complete!');
+      stopwatch.stop();
+
+      return OperationSuccess(
+        data: CompressionResult(
+          outputPath: outputPath,
+          originalSize: originalSize,
+          compressedSize: compressedSize,
+          processingTime: stopwatch.elapsed,
+        ),
+        message: 'PDF compressed with Android native engine',
+        duration: stopwatch.elapsed,
+      );
+    } catch (e) {
+      // Fallback to Syncfusion if Android compressor fails
+      onProgress?.call(0.5, 'Native compression failed, using fallback...');
+      return await _compressWithSyncfusion(
+        inputPath: inputPath,
+        outputPath: outputPath,
+        options: options,
+        originalSize: originalSize,
+        stopwatch: stopwatch,
+        onProgress: onProgress,
+      );
+    }
+  }
+
+  /// Map compression level to pdf_compressor quality
+  CompressQuality _mapToCompressQuality(CompressionLevel level) {
+    return switch (level) {
+      CompressionLevel.low => CompressQuality.HIGH,      // Less compression, better quality
+      CompressionLevel.medium => CompressQuality.MEDIUM,
+      CompressionLevel.high => CompressQuality.LOW,      // More compression, lower quality
+      CompressionLevel.extreme => CompressQuality.LOW,
+      CompressionLevel.custom => CompressQuality.MEDIUM,
+    };
+  }
+
   /// Compress PDF using Syncfusion (cross-platform fallback)
   Future<OperationResult<CompressionResult>> _compressWithSyncfusion({
     required String inputPath,

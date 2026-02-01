@@ -320,7 +320,7 @@ class PdfProcessor {
 
         switch (options.position) {
           case PageNumberPosition.topLeft:
-            position = Offset(margin, margin);
+            position = const Offset(margin, margin);
             break;
           case PageNumberPosition.topCenter:
             position = Offset((pageSize.width - textSize.width) / 2, margin);

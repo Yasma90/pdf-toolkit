@@ -238,12 +238,20 @@ class PdfService {
   }
 
   /// Map compression level to pdf_compressor quality
+  ///
+  /// CompressionLevel represents user intent:
+  /// - low = minimal compression, preserve quality
+  /// - high = aggressive compression, reduce file size
+  ///
+  /// CompressQuality represents image quality:
+  /// - LOW = low quality (aggressive compression)
+  /// - HIGH = high quality (minimal compression)
   CompressQuality _mapToCompressQuality(CompressionLevel level) {
     return switch (level) {
-      CompressionLevel.low => CompressQuality.HIGH,      // Less compression, better quality
-      CompressionLevel.medium => CompressQuality.MEDIUM,
-      CompressionLevel.high => CompressQuality.LOW,      // More compression, lower quality
-      CompressionLevel.extreme => CompressQuality.LOW,
+      CompressionLevel.low => CompressQuality.LOW,        // Minimal compression, best quality
+      CompressionLevel.medium => CompressQuality.MEDIUM,  // Balanced
+      CompressionLevel.high => CompressQuality.HIGH,      // Aggressive compression
+      CompressionLevel.extreme => CompressQuality.EXTREME, // Maximum compression
       CompressionLevel.custom => CompressQuality.MEDIUM,
     };
   }
@@ -531,7 +539,7 @@ class PdfService {
             await File(outputPath).writeAsBytes(bytes);
 
             outputPaths.add(outputPath);
-            totalSize += bytes.length as int;
+            totalSize += bytes.length;
             outputDoc.dispose();
           }
           break;
@@ -573,7 +581,7 @@ class PdfService {
             await File(outputPath).writeAsBytes(bytes);
 
             outputPaths.add(outputPath);
-            totalSize += bytes.length as int;
+            totalSize += bytes.length;
             outputDoc.dispose();
             fileIndex++;
           }

@@ -92,7 +92,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: AppColors.unlockColor),
+                    const Icon(Icons.info_outline, color: AppColors.unlockColor),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -383,13 +383,13 @@ class _SuccessAnimation extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _StatusIcon(Icons.lock, AppColors.unlockColor, strikethrough: true),
-              const SizedBox(width: 8),
-              const Icon(Icons.arrow_forward, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
+              Icon(Icons.arrow_forward, color: AppColors.textSecondary),
+              SizedBox(width: 8),
               _StatusIcon(Icons.lock_open, AppColors.success),
             ],
           ),

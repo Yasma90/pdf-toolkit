@@ -15,11 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses local fork with AGP 8+ compatibility fix (added `namespace` declaration)
   - Compression levels mapped: Low (50%), Medium (30%), High/Extreme (10% quality)
   - Falls back to Syncfusion if native compression fails
+- **Ghostscript installation prompt on Windows** - when Ghostscript is not installed, shows info card with download link
 
 ### Fixed
 
 - Fixed pdf_compressor AGP 8+ build error by adding `namespace 'com.kaizen404.pdf_compressor'`
 - Updated pdf_compressor build.gradle: compileSdkVersion 34, minSdkVersion 21, replaced jcenter with mavenCentral
+- Added BouncyCastle dependencies (bcprov-jdk15on, bcpkix-jdk15on) required by iText for Android release builds
+- Added ProGuard rules to prevent R8 from stripping crypto classes
 
 ### Changed
 

@@ -5,10 +5,12 @@ import 'package:pdf_toolkit/core/models/compression_level.dart';
 import 'package:pdf_toolkit/core/models/operation_result.dart';
 import 'package:pdf_toolkit/core/models/pdf_file.dart';
 import 'package:pdf_toolkit/core/services/file_service.dart';
+import 'package:pdf_toolkit/core/services/ghostscript_service.dart';
 import 'package:pdf_toolkit/core/services/pdf_service.dart';
 import 'package:pdf_toolkit/shared/theme/app_theme.dart';
 import 'package:pdf_toolkit/shared/widgets/file_drop_zone.dart';
 import 'package:pdf_toolkit/shared/widgets/progress_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Providers
 final fileServiceProvider = Provider((ref) => FileService());
@@ -21,6 +23,12 @@ final compressionOptionsProvider = StateProvider<CompressionOptions>(
 final compressionStateProvider = StateProvider<CompressionState>(
   (ref) => const CompressionState.idle(),
 );
+
+// Provider to check if Ghostscript is available (Windows only)
+final ghostscriptAvailableProvider = FutureProvider<bool>((ref) async {
+  if (!Platform.isWindows) return true; // Not needed on Android
+  return await GhostscriptService.isAvailable();
+});
 
 // State classes
 sealed class CompressionState {
@@ -65,6 +73,7 @@ class CompressScreen extends ConsumerWidget {
     final selectedFile = ref.watch(selectedFileProvider);
     final options = ref.watch(compressionOptionsProvider);
     final state = ref.watch(compressionStateProvider);
+    final ghostscriptAvailable = ref.watch(ghostscriptAvailableProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -83,6 +92,12 @@ class CompressScreen extends ConsumerWidget {
               // Platform not supported message
               if (!_isCompressionAvailable) ...[
                 _PlatformNotSupportedCard(),
+                const SizedBox(height: 24),
+              ],
+
+              // Ghostscript not installed warning (Windows only)
+              if (Platform.isWindows && ghostscriptAvailable.value == false) ...[
+                const _GhostscriptNotInstalledCard(),
                 const SizedBox(height: 24),
               ],
 
@@ -535,6 +550,92 @@ class _PlatformNotSupportedCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GhostscriptNotInstalledCard extends StatelessWidget {
+  const _GhostscriptNotInstalledCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.info_outline,
+                  color: Colors.blue.shade700,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Install Ghostscript for Best Compression',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade800,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Ghostscript enables professional-grade compression with 30-90% file size reduction.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.blue.shade700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final url = Uri.parse('https://ghostscript.com/releases/gsdnld.html');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: const Icon(Icons.download, size: 18),
+              label: const Text('Download Ghostscript (Free)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'After installing, restart the app. Choose the 64-bit AGPL version.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.blue.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
